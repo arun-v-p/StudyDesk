@@ -29,8 +29,10 @@ export function Modal({
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const restoreTo = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
   const titleId = useId();
   const descId = useId();
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     if (!open) return;
@@ -47,7 +49,7 @@ export function Modal({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation();
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (e.key !== 'Tab') return;
@@ -74,7 +76,7 @@ export function Modal({
       document.body.style.overflow = prevOverflow;
       restoreTo.current?.focus();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 

@@ -138,6 +138,27 @@ describe('timetable rendering', () => {
     // Overlapping pair both reachable — the old `find()` made the second invisible.
     expect(labels.filter((l) => l.includes('Thermodynamics')).length).toBeGreaterThanOrEqual(2);
   });
+
+  it('retains focus while typing in text and time fields', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await h1(/^today$/i);
+
+    await user.click(screen.getByRole('link', { name: /^timetable/i }));
+    await screen.findByRole('heading', { level: 1, name: /^timetable$/i });
+    await user.click(screen.getByRole('button', { name: /add class/i }));
+
+    const subject = screen.getByRole('textbox', { name: /Subject/ });
+    await user.type(subject, 'Math');
+    expect(subject).toHaveValue('Math');
+    expect(subject).toHaveFocus();
+
+    const starts = screen.getByLabelText(/Starts/);
+    await user.clear(starts);
+    await user.type(starts, '10:30');
+    expect(starts).toHaveValue('10:30');
+    expect(starts).toHaveFocus();
+  });
 });
 
 describe('theme cycling', () => {
