@@ -705,7 +705,10 @@
   }
   .calendar-day--out {
     color: var(--sd-subtle);
-    opacity: 0.42;
+  }
+  .calendar-day__number {
+    position: relative;
+    z-index: 1;
   }
   /* Today is a ring, not a fill — fill is reserved for "selected" so the two
      states never compete. The original used a fill for both. */

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from '../src/App';
 import { SEED_KEYS, loadSampleTerm } from '../src/store/seed';
@@ -158,6 +158,45 @@ describe('timetable rendering', () => {
     await user.type(starts, '10:30');
     expect(starts).toHaveValue('10:30');
     expect(starts).toHaveFocus();
+  });
+});
+
+describe('calendar rendering', () => {
+  it('keeps date numbers visible for hover, focus, selected, today, and adjacent dates', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await h1(/^today$/i);
+
+    await user.click(
+      within(screen.getByRole('navigation', { name: 'Main' })).getByRole('link', {
+        name: /^calendar/i,
+      }),
+    );
+    const grid = await screen.findByRole('grid', { name: /\d{4}/ });
+    const days = screen.getAllByRole('gridcell');
+
+    expect(days.length).toBeGreaterThanOrEqual(28);
+    for (const day of days) {
+      expect(day.querySelector('.calendar-day__number')).toBeVisible();
+      expect(getComputedStyle(day).opacity).not.toBe('0.42');
+    }
+
+    const adjacent = days.find((day) => day.classList.contains('calendar-day--out'));
+    expect(adjacent).toBeDefined();
+    expect(adjacent?.querySelector('.calendar-day__number')).toHaveTextContent(/\d+/);
+
+    const today = days.find((day) => day.getAttribute('aria-current') === 'date');
+    expect(today).toBeDefined();
+    if (!today) throw new Error('Expected the calendar to contain today');
+    await user.hover(today);
+    today.focus();
+    expect(today).toHaveFocus();
+    expect(today).toHaveAttribute('aria-current', 'date');
+
+    await user.click(today!);
+    expect(today).toHaveClass('calendar-day--selected');
+    expect(today.querySelector('.calendar-day__number')).toBeVisible();
+    expect(grid).toBeInTheDocument();
   });
 });
 

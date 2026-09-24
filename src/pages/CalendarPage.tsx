@@ -238,7 +238,7 @@ export function CalendarPage() {
                     isToday(day) && !isSelected ? 'calendar-day--today' : ''
                   } ${inMonth ? '' : 'calendar-day--out'}`}
                 >
-                  <span>{format(day, 'd')}</span>
+                  <span className="calendar-day__number">{format(day, 'd')}</span>
                   <span className="flex h-1 gap-[3px]" aria-hidden="true">
                     {dayDeadlines.slice(0, 2).map((d) => {
                       const st = deadlineStatus(d, now);
