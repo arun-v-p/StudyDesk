@@ -6,6 +6,8 @@ import {
   ListTodo,
   Settings as SettingsIcon,
   StickyNote,
+  FileText,
+  GraduationCap,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -24,6 +26,8 @@ export const NAV_ITEMS: NavItem[] = [
   { path: '/calendar', label: 'Calendar', icon: CalendarRange },
   { path: '/timer', label: 'Focus Timer', icon: Clock },
   { path: '/notes', label: 'Notes', icon: StickyNote },
+  { path: '/materials', label: 'Study Materials', icon: FileText },
+  { path: '/exams', label: 'Exam Timetable', icon: GraduationCap },
 ];
 
 export const SETTINGS_ITEM: NavItem = {

@@ -139,6 +139,44 @@ describe('timetable rendering', () => {
     expect(labels.filter((l) => l.includes('Thermodynamics')).length).toBeGreaterThanOrEqual(2);
   });
 
+  describe('notes preview', () => {
+    it('opens a read-only preview from the note card while keeping edit separate', async () => {
+      loadSampleTerm('replace', true);
+      const user = userEvent.setup();
+      render(<App />);
+      await h1(/^today$/i);
+      await user.click(screen.getByRole('link', { name: /^notes/i }));
+      await h1(/^notes$/i);
+
+      const title = 'Carnot cycle — key relations';
+      await user.click(screen.getByRole('heading', { name: title }));
+      const preview = await screen.findByRole('dialog', { name: title });
+      expect(
+        within(preview).getByText(/efficiency depends only on the reservoir temperatures/i),
+      ).toBeInTheDocument();
+      expect(within(preview).getByText(/Created/i)).toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: /^edit$/i }));
+      expect(await screen.findByRole('dialog', { name: /edit note/i })).toBeInTheDocument();
+      expect(screen.getByRole('textbox', { name: /title/i })).toHaveValue(title);
+    });
+
+    describe('focus timer controls', () => {
+      it('shows the notification capability state and a sound test control', async () => {
+        const user = userEvent.setup();
+        render(<App />);
+        await h1(/^today$/i);
+        await user.click(screen.getByRole('link', { name: /^focus timer/i }));
+        await h1(/^focus timer$/i);
+
+        expect(screen.getByRole('status', { name: /notification status/i })).toHaveTextContent(
+          /unsupported|not granted|granted|denied/i,
+        );
+        expect(screen.getByRole('button', { name: /test sound/i })).toBeInTheDocument();
+      });
+    });
+  });
+
   it('retains focus while typing in text and time fields', async () => {
     const user = userEvent.setup();
     render(<App />);

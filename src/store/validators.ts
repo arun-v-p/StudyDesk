@@ -36,6 +36,16 @@ export function isValidTimetableEntry(v: unknown): boolean {
   return true;
 }
 
+export function isValidExamTimetableEntry(v: unknown): boolean {
+  if (!isRecord(v) || !isStr(v.id) || !isStr(v.subject)) return false;
+  if (!isResolvableDayKey(v.date)) return false;
+  if (!isStr(v.startTime) || toMinutes(v.startTime) == null) return false;
+  if (!isStr(v.endTime) || toMinutes(v.endTime) == null) return false;
+  if (!isResolvableDayKey(v.validFrom) || !isResolvableDayKey(v.validUntil)) return false;
+  if (v.validUntil < v.validFrom) return false;
+  return true;
+}
+
 export function isValidNote(v: unknown): boolean {
   return isRecord(v) && isStr(v.id) && isStr(v.title);
 }

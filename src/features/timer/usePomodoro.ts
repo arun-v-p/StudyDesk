@@ -234,13 +234,11 @@ export function usePomodoro({ onComplete, durations }: UsePomodoroOptions = {}) 
  * Optional completion chime via WebAudio — no asset to ship, and it respects
  * the autoplay policy because it only runs after a user gesture started the timer.
  */
-export function playChime(kind: 'done' | 'break' = 'done'): void {
+export function playChime(kind: 'done' | 'break' | 'start' = 'done'): void {
   try {
-    const Ctx =
-      window.AudioContext ??
-      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    const ctx = new Ctx();
-    const notes = kind === 'done' ? [660, 880] : [520, 392];
+    const ctx = getAudioContext();
+    if (!ctx || ctx.state === 'suspended') return;
+    const notes = kind === 'done' ? [660, 880] : kind === 'break' ? [520, 392] : [440];
     notes.forEach((freq, i) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -254,8 +252,30 @@ export function playChime(kind: 'done' | 'break' = 'done'): void {
       osc.start(t0);
       osc.stop(t0 + 0.45);
     });
-    window.setTimeout(() => void ctx.close(), 1200);
   } catch {
-    /* audio unavailable — non-fatal */
+    // Audio is optional and can be unavailable or blocked by browser policy.
+  }
+}
+
+let audioContext: AudioContext | null = null;
+
+function getAudioContext(): AudioContext | null {
+  const Ctx =
+    window.AudioContext ??
+    (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  if (!Ctx) return null;
+  audioContext ??= new Ctx();
+  return audioContext;
+}
+
+/** Call from a user gesture so completion sounds are allowed by autoplay policy. */
+export async function unlockAudio(): Promise<boolean> {
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return false;
+    if (ctx.state === 'suspended') await ctx.resume();
+    return ctx.state === 'running';
+  } catch {
+    return false;
   }
 }

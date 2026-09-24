@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Pause, Play, RotateCcw, SkipForward, Volume2, VolumeX } from 'lucide-react';
 import { useStore } from '../store/AppStore';
 import { Card } from '../components/ui/Card';
@@ -9,6 +9,7 @@ import {
   LABELS,
   LONG_BREAK_EVERY,
   type TimerMode,
+  unlockAudio,
 } from '../features/timer/usePomodoro';
 
 const MODES: TimerMode[] = ['focus', 'shortBreak', 'longBreak'];
@@ -16,6 +17,21 @@ const MODES: TimerMode[] = ['focus', 'shortBreak', 'longBreak'];
 export function TimerPage() {
   const { toast } = useStore();
   const [sound, setSound] = useState(true);
+  const [notificationStatus, setNotificationStatus] = useState<
+    'granted' | 'default' | 'denied' | 'unsupported'
+  >('unsupported');
+  const [soundStatus, setSoundStatus] = useState<string | null>(null);
+
+  const readNotificationStatus = useCallback(() => {
+    if (typeof window === 'undefined' || !('Notification' in window) || !window.isSecureContext) {
+      return 'unsupported' as const;
+    }
+    return Notification.permission;
+  }, []);
+
+  useEffect(() => {
+    setNotificationStatus(readNotificationStatus());
+  }, [readNotificationStatus]);
 
   const onComplete = useCallback(
     (mode: TimerMode, completedToday: number) => {
@@ -29,17 +45,17 @@ export function TimerPage() {
         duration: 6000,
       });
       // Best-effort desktop notification; ignored if permission is not granted.
-      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      if (notificationStatus === 'granted') {
         try {
           new Notification('StudyDesk', {
             body: mode === 'focus' ? 'Focus session complete.' : 'Break finished.',
           });
-        } catch {
-          /* not available in this context */
+        } catch (error) {
+          console.warn('[studydesk] desktop notification failed', error);
         }
       }
     },
-    [sound, toast],
+    [notificationStatus, sound, toast],
   );
 
   const t = usePomodoro({ onComplete });
@@ -49,16 +65,61 @@ export function TimerPage() {
   const offset = circumference * (1 - t.progress);
 
   const requestNotifications = async () => {
-    if (typeof Notification === 'undefined') return;
+    const current = readNotificationStatus();
+    setNotificationStatus(current);
+    if (current === 'unsupported') {
+      toast({ message: 'Notifications are unsupported on this origin or browser', tone: 'info' });
+      return;
+    }
+    if (current === 'denied') {
+      toast({
+        message: 'Notifications are blocked. Allow them in browser site settings.',
+        tone: 'info',
+      });
+      return;
+    }
+    if (current === 'granted') {
+      toast({ message: 'Desktop notifications are already enabled', tone: 'success' });
+      return;
+    }
     try {
       const res = await Notification.requestPermission();
-      toast({
-        message: res === 'granted' ? 'Desktop notifications enabled' : 'Notifications not granted',
-        tone: res === 'granted' ? 'success' : 'info',
-      });
-    } catch {
-      toast({ message: 'Notifications unavailable in this browser', tone: 'info' });
+      setNotificationStatus(res);
+      toast(
+        res === 'granted'
+          ? { message: 'Desktop notifications enabled', tone: 'success' }
+          : res === 'denied'
+            ? {
+                message: 'Notifications blocked. Allow them in browser site settings.',
+                tone: 'info',
+              }
+            : { message: 'Notification permission was not granted.', tone: 'info' },
+      );
+    } catch (error) {
+      console.warn('[studydesk] notification permission request failed', error);
+      setNotificationStatus('unsupported');
+      toast({ message: 'Notifications are unavailable in this browser', tone: 'info' });
     }
+  };
+
+  const toggleTimer = async () => {
+    if (sound && !t.isRunning) {
+      const unlocked = await unlockAudio();
+      if (!unlocked) setSoundStatus('Sound is unavailable or blocked by browser audio policy.');
+      else setSoundStatus(null);
+      if (unlocked) playChime('start');
+    }
+    t.toggle();
+  };
+
+  const testSound = async () => {
+    const unlocked = await unlockAudio();
+    if (!unlocked) {
+      setSoundStatus('Sound is unavailable or blocked by browser audio policy.');
+      return;
+    }
+    playChime('done');
+    setSoundStatus('Test sound played');
   };
 
   const mm = String(t.minutes).padStart(2, '0');
@@ -144,7 +205,7 @@ export function TimerPage() {
         </IconButton>
         <button
           type="button"
-          onClick={t.toggle}
+          onClick={() => void toggleTimer()}
           aria-label={t.isRunning ? 'Pause timer' : 'Start timer'}
           className="bg-accent text-accent-fg shadow-float ring-accent-soft duration-fast ease-out-soft hover:bg-accent-hover grid h-[70px] w-[70px] place-items-center rounded-full ring-[6px] transition-transform active:scale-95"
         >
@@ -206,10 +267,33 @@ export function TimerPage() {
           <button
             type="button"
             className="btn btn--ghost !min-h-9 !py-1.5 !text-xs"
+            onClick={() => void testSound()}
+            disabled={!sound}
+          >
+            Test sound
+          </button>
+          <button
+            type="button"
+            className="btn btn--ghost !min-h-9 !py-1.5 !text-xs"
             onClick={requestNotifications}
           >
-            Enable notifications
+            {notificationStatus === 'granted'
+              ? 'Notifications enabled'
+              : notificationStatus === 'denied'
+                ? 'Notifications blocked'
+                : notificationStatus === 'unsupported'
+                  ? 'Notifications unsupported'
+                  : 'Enable notifications'}
           </button>
+          <span role="status" aria-label="Notification status" className="text-2xs text-subtle">
+            Notification status:{' '}
+            {notificationStatus === 'default' ? 'Not granted' : notificationStatus}
+          </span>
+          {soundStatus && (
+            <span role="status" className="text-2xs text-subtle">
+              {soundStatus}
+            </span>
+          )}
           <span className="text-2xs text-subtle ml-auto">
             Press <kbd className="border-border bg-raised rounded border px-1 font-mono">Space</kbd>{' '}
             to start or pause

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import type { ReactNode } from 'react';
+import type { KeyboardEvent, ReactNode } from 'react';
 
 /** The one card treatment. Replaces ~21 copies of the same class string. */
 export function Card({
@@ -7,14 +7,24 @@ export function Card({
   className = '',
   interactive = false,
   as: Tag = 'section',
+  onClick,
+  onKeyDown,
 }: {
   children: ReactNode;
   className?: string;
   interactive?: boolean;
   as?: 'section' | 'div' | 'article' | 'li';
+  onClick?: () => void;
+  onKeyDown?: (event: KeyboardEvent<HTMLElement>) => void;
 }) {
   return (
-    <Tag className={`card ${interactive ? 'card--interactive' : ''} ${className}`.trim()}>
+    <Tag
+      className={`card ${interactive ? 'card--interactive' : ''} ${className}`.trim()}
+      onClick={onClick}
+      onKeyDown={onKeyDown}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+    >
       {children}
     </Tag>
   );

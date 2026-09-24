@@ -26,6 +26,12 @@ const NotesPage = lazy(() => import('./pages/NotesPage').then((m) => ({ default:
 const SettingsPage = lazy(() =>
   import('./pages/SettingsPage').then((m) => ({ default: m.SettingsPage })),
 );
+const MaterialsPage = lazy(() =>
+  import('./pages/MaterialsPage').then((m) => ({ default: m.MaterialsPage })),
+);
+const ExamTimetablePage = lazy(() =>
+  import('./pages/ExamTimetablePage').then((m) => ({ default: m.ExamTimetablePage })),
+);
 const NotFoundPage = lazy(() =>
   import('./pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })),
 );
@@ -126,6 +132,8 @@ function ThemedApp() {
                 </ErrorBoundary>
               }
             />
+            <Route path="materials" element={<MaterialsPage />} />
+            <Route path="exams" element={<ExamTimetablePage />} />
             <Route
               path="*"
               element={

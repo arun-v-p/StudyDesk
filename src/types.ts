@@ -38,6 +38,48 @@ export interface TimetableEntry {
   note: string;
 }
 
+export interface ExamTimetableEntry {
+  id: string;
+  subject: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  room: string;
+  note: string;
+  validFrom: string;
+  validUntil: string;
+}
+
+export interface StudyMaterialSubject {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StudyMaterialFolder {
+  id: string;
+  subjectId: string;
+  name: string;
+  parentFolderId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StudyMaterialFile {
+  id: string;
+  subjectId: string;
+  folderId: string | null;
+  blobId: string;
+  name: string;
+  kind: 'pdf' | 'txt' | 'md' | 'docx';
+  mimeType: string;
+  sizeBytes: number;
+  lastModified: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Note {
   id: string;
   title: string;

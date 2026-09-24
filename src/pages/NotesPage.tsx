@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { formatDistanceToNow, parseISO } from 'date-fns';
+import { format, formatDistanceToNow, parseISO } from 'date-fns';
 import { Pencil, Pin, Plus, Search, StickyNote, Trash2, X } from 'lucide-react';
 import { useStore } from '../store/AppStore';
 import { Card, Chip } from '../components/ui/Card';
@@ -17,6 +17,7 @@ export function NotesPage() {
   const [form, setForm] = useState({ title: '', content: '', tags: '' });
   const [error, setError] = useState<string | undefined>();
   const [pendingDelete, setPendingDelete] = useState<Note | null>(null);
+  const [preview, setPreview] = useState<Note | null>(null);
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -171,6 +172,13 @@ export function NotesPage() {
                 key={n.id}
                 interactive
                 className={`group relative !p-4 ${n.pinned ? 'border-accent/60' : ''}`}
+                onClick={() => setPreview(n)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    setPreview(n);
+                  }
+                }}
               >
                 {n.pinned && (
                   <Pin
@@ -201,7 +209,8 @@ export function NotesPage() {
                   <IconButton
                     aria-label={n.pinned ? `Unpin “${n.title}”` : `Pin “${n.title}”`}
                     size="sm"
-                    onClick={() => {
+                    onClick={(event) => {
+                      event.stopPropagation();
                       notes.update(n.id, { pinned: !n.pinned });
                       toast({ message: n.pinned ? 'Unpinned' : 'Pinned to Today', tone: 'info' });
                     }}
@@ -211,7 +220,10 @@ export function NotesPage() {
                   <IconButton
                     aria-label={`Edit “${n.title}”`}
                     size="sm"
-                    onClick={() => openForm(n)}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      openForm(n);
+                    }}
                   >
                     <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
                   </IconButton>
@@ -219,7 +231,10 @@ export function NotesPage() {
                     aria-label={`Delete “${n.title}”`}
                     tone="danger"
                     size="sm"
-                    onClick={() => setPendingDelete(n)}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setPendingDelete(n);
+                    }}
                   >
                     <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                   </IconButton>
@@ -280,6 +295,58 @@ export function NotesPage() {
             autoComplete="off"
           />
         </form>
+      </Modal>
+
+      <Modal
+        open={preview != null}
+        onClose={() => setPreview(null)}
+        title={preview?.title ?? 'Note preview'}
+        width="max-w-2xl"
+        footer={
+          <>
+            <button type="button" className="btn btn--ghost" onClick={() => setPreview(null)}>
+              <X className="h-4 w-4" aria-hidden="true" /> Close
+            </button>
+            <button
+              type="button"
+              className="btn btn--primary"
+              onClick={() => {
+                if (preview) openForm(preview);
+                setPreview(null);
+              }}
+            >
+              <Pencil className="h-4 w-4" aria-hidden="true" /> Edit
+            </button>
+          </>
+        }
+      >
+        {preview && (
+          <article className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              {preview.pinned && <Chip tone="accent">Pinned</Chip>}
+              {preview.tags.map((tag) => (
+                <Chip key={tag} tone="info">
+                  #{tag}
+                </Chip>
+              ))}
+            </div>
+            <div className="border-border bg-sunken max-h-[55vh] overflow-y-auto rounded-lg border p-4">
+              <p className="text-fg whitespace-pre-wrap">
+                {preview.content || 'This note has no content.'}
+              </p>
+            </div>
+            <dl className="text-subtle grid gap-1 text-xs sm:grid-cols-2">
+              <div>
+                <dt className="font-semibold">Created</dt>
+                <dd>{format(parseISO(preview.createdAt), 'PPp')}</dd>
+              </div>
+              <div>
+                <dt className="font-semibold">Last edited</dt>
+                <dd>{format(parseISO(preview.updatedAt), 'PPp')}</dd>
+              </div>
+            </dl>
+          </article>
+        )}
       </Modal>
 
       <ConfirmDialog
