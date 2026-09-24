@@ -702,6 +702,10 @@
   .calendar-day:hover {
     background: var(--sd-raised);
     border-color: var(--sd-border);
+    color: var(--sd-fg);
+  }
+  .calendar-day:focus-visible {
+    color: var(--sd-fg);
   }
   .calendar-day--out {
     color: var(--sd-subtle);

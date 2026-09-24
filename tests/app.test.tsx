@@ -196,6 +196,10 @@ describe('calendar rendering', () => {
     await user.click(today!);
     expect(today).toHaveClass('calendar-day--selected');
     expect(today.querySelector('.calendar-day__number')).toBeVisible();
+    document.documentElement.dataset.theme = 'light';
+    expect(getComputedStyle(today).color).not.toBe('transparent');
+    document.documentElement.dataset.theme = 'dark';
+    expect(getComputedStyle(today).color).not.toBe('transparent');
     expect(grid).toBeInTheDocument();
   });
 });
