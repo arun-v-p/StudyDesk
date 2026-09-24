@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+    <title>StudyDesk — Personal Study Planner</title>
+    <meta
+      name="description"
+      content="StudyDesk is a local-first study planner: tasks, deadlines, a weekly timetable, calendar, notes and a Pomodoro focus timer. No account, no server — your data stays in your browser."
+    />
+    <link rel="canonical" href="%VITE_SITE_URL%" />
+
+    <!-- Open Graph / social cards -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="StudyDesk" />
+    <meta property="og:title" content="StudyDesk — Personal Study Planner" />
+    <meta
+      property="og:description"
+      content="Tasks, deadlines, timetable, calendar, notes and a Pomodoro timer. Local-first, no account required."
+    />
+    <meta property="og:url" content="%VITE_SITE_URL%" />
+    <meta property="og:image" content="%VITE_SITE_URL%og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="StudyDesk dashboard showing today's tasks, upcoming deadlines and schedule"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="StudyDesk — Personal Study Planner" />
+    <meta
+      name="twitter:description"
+      content="Tasks, deadlines, timetable, calendar, notes and a Pomodoro timer. Local-first, no account required."
+    />
+    <meta name="twitter:image" content="%VITE_SITE_URL%og-image.png" />
+
+    <!-- Browser chrome colour, kept in sync with the active theme at runtime -->
+    <meta name="theme-color" content="#14141a" />
+    <meta name="theme-color" content="#14141a" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f6f5fa" media="(prefers-color-scheme: light)" />
+    <meta name="color-scheme" content="dark light" />
+
+    <!-- PWA -->
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="StudyDesk" />
+    <meta name="application-name" content="StudyDesk" />
+
+    <!-- Icons -->
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+
+    <!--
+      Single source of truth for the pre-hydration background. The original
+      duplicated it in index.html, index.css AND App.tsx; the token layer in
+      theme.css now owns it. Set the theme before paint to avoid a flash.
+    -->
+    <script>
+      (function () {
+        var raw = null;
+        try {
+          // Reading localStorage throws in a sandboxed iframe or when site data
+          // is blocked; the app itself degrades gracefully via lib/safeStorage.
+          raw = window.localStorage.getItem('studydesk.settings');
+        } catch (e) {
+          raw = null;
+        }
+        try {
+          var pref = 'system';
+          if (raw) {
+            var parsed = JSON.parse(raw);
+            var data = parsed && parsed.data ? parsed.data : parsed;
+            if (
+              data &&
+              (data.theme === 'dark' || data.theme === 'light' || data.theme === 'system')
+            ) {
+              pref = data.theme;
+            }
+          }
+          var light =
+            pref === 'light' ||
+            (pref === 'system' &&
+              window.matchMedia &&
+              window.matchMedia('(prefers-color-scheme: light)').matches);
+          document.documentElement.dataset.theme = light ? 'light' : 'dark';
+        } catch (e) {
+          document.documentElement.dataset.theme = 'dark';
+        }
+      })();
+    </script>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+      }
+      body {
+        background: #14141a;
+      }
+      :root[data-theme='light'] body {
+        background: #f6f5fa;
+      }
+      #boot {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        color: #8b8999;
+        font-family: ui-sans-serif, system-ui, sans-serif;
+        font-size: 13px;
+      }
+      #boot .spin {
+        width: 22px;
+        height: 22px;
+        margin: 0 auto 12px;
+        border-radius: 50%;
+        border: 2px solid #2e2e3a;
+        border-top-color: #8b7cf8;
+        animation: bootspin 0.8s linear infinite;
+      }
+      @keyframes bootspin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #boot .spin {
+          animation-duration: 2.4s;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <div id="boot">
+        <div>
+          <div class="spin"></div>
+          <div>Loading StudyDesk…</div>
+        </div>
+      </div>
+    </div>
+
+    <noscript>
+      <div
+        style="
+          max-width: 34rem;
+          margin: 0 auto;
+          padding: 2rem;
+          color: #eceaf2;
+          font-family: system-ui, sans-serif;
+        "
+      >
+        <h1 style="font-size: 1.25rem">StudyDesk needs JavaScript</h1>
+        <p style="color: #a8a6b8; font-size: 0.9rem; line-height: 1.6">
+          StudyDesk runs entirely in your browser and stores your data in local storage, so it
+          cannot work without JavaScript. Enable it and reload, or read the source on
+          <a href="https://github.com/arun-v-p/StudyDesk" style="color: #8b7cf8">GitHub</a>.
+        </p>
+      </div>
+    </noscript>
+
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

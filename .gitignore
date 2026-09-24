@@ -1,0 +1,21 @@
+node_modules/
+dist/
+dist-ssr/
+*.local
+.vite/
+.env
+.env.*
+!.env.example
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*
+coverage/
+*.tsbuildinfo
+
+# Single-file review artifact (npm run build:preview)
+preview-dist/

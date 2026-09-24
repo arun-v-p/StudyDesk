@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>StudyDesk — page not found</title>
+    <script>
+      // HashRouter needs no rewrite, but a stray deep path should still land in the app.
+      var target = '/StudyDesk/';
+      if (location.pathname !== target) location.replace(target);
+    </script>
+  </head>
+  <body></body>
+</html>
