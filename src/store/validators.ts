@@ -50,6 +50,43 @@ export function isValidNote(v: unknown): boolean {
   return isRecord(v) && isStr(v.id) && isStr(v.title);
 }
 
+export function isValidMaterialSubject(v: unknown): boolean {
+  return isRecord(v) && isStr(v.id) && isStr(v.name) && isStr(v.createdAt) && isStr(v.updatedAt);
+}
+
+export function isValidMaterialFolder(v: unknown): boolean {
+  return (
+    isRecord(v) &&
+    isStr(v.id) &&
+    isStr(v.subjectId) &&
+    isStr(v.name) &&
+    (v.parentFolderId === null || isStr(v.parentFolderId)) &&
+    isStr(v.createdAt) &&
+    isStr(v.updatedAt)
+  );
+}
+
+export function isValidMaterialFile(v: unknown): boolean {
+  return (
+    isRecord(v) &&
+    isStr(v.id) &&
+    isStr(v.subjectId) &&
+    (v.folderId === null || isStr(v.folderId)) &&
+    isStr(v.blobId) &&
+    isStr(v.name) &&
+    (v.kind === 'pdf' || v.kind === 'txt' || v.kind === 'md' || v.kind === 'docx') &&
+    isStr(v.mimeType) &&
+    typeof v.sizeBytes === 'number' &&
+    Number.isFinite(v.sizeBytes) &&
+    v.sizeBytes >= 0 &&
+    typeof v.lastModified === 'number' &&
+    Number.isFinite(v.lastModified) &&
+    v.lastModified >= 0 &&
+    isStr(v.createdAt) &&
+    isStr(v.updatedAt)
+  );
+}
+
 export function isValidPlannerEntry(v: unknown): boolean {
   return (
     isRecord(v) &&

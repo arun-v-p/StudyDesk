@@ -41,7 +41,7 @@ export default defineConfig({
   server: { host: '0.0.0.0', port: 3000, strictPort: true },
   build: {
     chunkSizeWarningLimit: 250,
-    sourcemap: true,
+    sourcemap: 'hidden',
     rollupOptions: {
       output: {
         manualChunks: {

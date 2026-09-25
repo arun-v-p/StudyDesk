@@ -132,8 +132,22 @@ function ThemedApp() {
                 </ErrorBoundary>
               }
             />
-            <Route path="materials" element={<MaterialsPage />} />
-            <Route path="exams" element={<ExamTimetablePage />} />
+            <Route
+              path="materials"
+              element={
+                <ErrorBoundary label="Materials">
+                  <MaterialsPage />
+                </ErrorBoundary>
+              }
+            />
+            <Route
+              path="exams"
+              element={
+                <ErrorBoundary label="Exams">
+                  <ExamTimetablePage />
+                </ErrorBoundary>
+              }
+            />
             <Route
               path="*"
               element={
