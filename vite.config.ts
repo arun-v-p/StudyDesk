@@ -56,6 +56,5 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./tests/setup.ts'],
     css: false,
-    pool: 'vmThreads',
   },
 } as Parameters<typeof defineConfig>[0]);
