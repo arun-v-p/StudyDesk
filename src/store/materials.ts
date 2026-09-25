@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { createId } from '../lib/id';
 import { storage } from '../lib/safeStorage';
 import type { StudyMaterialFile, StudyMaterialFolder, StudyMaterialSubject } from '../types';
+import { isValidMaterialFile, isValidMaterialFolder, isValidMaterialSubject } from './validators';
 
 export const MATERIALS_KEY = 'studydesk.materials.metadata';
 export const MATERIALS_SCHEMA_VERSION = 1;
@@ -31,9 +32,13 @@ function readMetadata(): MaterialsMetadata {
     const parsed = JSON.parse(raw) as { v?: number; data?: MaterialsMetadata };
     if (parsed.v !== MATERIALS_SCHEMA_VERSION || !parsed.data) return EMPTY_MATERIALS;
     return {
-      subjects: Array.isArray(parsed.data.subjects) ? parsed.data.subjects : [],
-      folders: Array.isArray(parsed.data.folders) ? parsed.data.folders : [],
-      files: Array.isArray(parsed.data.files) ? parsed.data.files : [],
+      subjects: Array.isArray(parsed.data.subjects)
+        ? parsed.data.subjects.filter(isValidMaterialSubject)
+        : [],
+      folders: Array.isArray(parsed.data.folders)
+        ? parsed.data.folders.filter(isValidMaterialFolder)
+        : [],
+      files: Array.isArray(parsed.data.files) ? parsed.data.files.filter(isValidMaterialFile) : [],
     };
   } catch (error) {
     console.error('[studydesk] could not read material metadata', error);

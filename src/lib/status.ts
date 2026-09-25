@@ -5,7 +5,7 @@
  * Deadlines.tsx under two different names. Keeping a single source of truth is
  * what stops them drifting apart.
  */
-import { isPast, isToday, isTomorrow, parseISO } from 'date-fns';
+import { addDays, isSameDay, parseISO } from 'date-fns';
 import { dateTimeKey, isResolvableDayKey, toMinutes } from './dates';
 import type { Deadline } from '../types';
 
@@ -48,10 +48,9 @@ export function deadlineStatus(
   if (mins != null) due.setHours(Math.floor(mins / 60), mins % 60, 0, 0);
   else due.setHours(23, 59, 59, 999); // all-day: slips at the end of the day
 
-  if (isPast(due) && !isToday(due)) return 'overdue';
   if (due.getTime() <= now.getTime()) return 'overdue';
-  if (isToday(due)) return 'today';
-  if (isTomorrow(due)) return 'tomorrow';
+  if (isSameDay(due, now)) return 'today';
+  if (isSameDay(due, addDays(now, 1))) return 'tomorrow';
   return 'upcoming';
 }
 

@@ -9,7 +9,7 @@
 
 [![Live demo](https://img.shields.io/badge/Live_demo-arun--v--p.github.io-8b7cf8?style=flat-square)](https://arun-v-p.github.io/StudyDesk/)
 [![CI](https://img.shields.io/badge/CI-passing-5cc39a?style=flat-square)](./.github/workflows/deploy.yml)
-[![Tests](https://img.shields.io/badge/tests-68_passing-5cc39a?style=flat-square)](./tests)
+[![Tests](https://img.shields.io/badge/tests-80_passing-5cc39a?style=flat-square)](./tests)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7_strict-3178c6?style=flat-square&logo=typescript&logoColor=white)](./tsconfig.json)
 [![WCAG](https://img.shields.io/badge/WCAG_2.2-AA-8b7cf8?style=flat-square)](#accessibility)
 
@@ -62,7 +62,7 @@ Requires Node 20+.
 | `npm run typecheck` | `tsc --noEmit`                        |
 | `npm run lint`      | ESLint (`jsx-a11y`, `react-hooks`)    |
 | `npm run format`    | Prettier, with Tailwind class sorting |
-| `npm test`          | 68 unit + integration tests           |
+| `npm test`          | 80 unit + integration tests           |
 | `npm run ci`        | Everything CI runs, in order          |
 
 ## Architecture
@@ -134,14 +134,14 @@ Target WCAG 2.2 AA. Concretely, and enforced in CI by `eslint-plugin-jsx-a11y`:
 ## Deployment
 
 GitHub Actions runs `lint → format:check → typecheck → test → build` on every push and PR, then
-deploys `master` to GitHub Pages. A failing check cannot reach production.
+deploys `main` to GitHub Pages. A failing check cannot reach production.
 
 `base` and the canonical/OG URLs derive from `GITHUB_REPOSITORY`, so the site keeps working if the
 repo is renamed or moved to a custom domain — override with `VITE_SITE_URL` in `.env.local`.
 
 ## Tests
 
-68 tests across 6 files. They are written as **regression tests for specific defects**, so the
+80 tests across 6 files. They are written as **regression tests for specific defects**, so the
 comments name what each one prevents:
 
 - `timetableLayout.test.ts` — half-hour starts, multi-hour spans, overlap lanes never colliding, unrenderable entries reported rather than hidden

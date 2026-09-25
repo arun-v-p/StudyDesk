@@ -1,7 +1,7 @@
 # Placing StudyDesk v2 into your repository
 
 This is a complete, working rewrite — not the mockup. It builds, passes lint,
-typechecks, has 68 passing tests, and renders. This document covers how to land
+typechecks, has 80 passing tests, and renders. This document covers how to land
 it in `arun-v-p/StudyDesk` cleanly, and how to hand it to a client.
 
 ---
@@ -16,7 +16,7 @@ your existing domain model. Nothing is mocked and nothing is stubbed.
 | Source                | 1,641 LOC / 14 files     | 6,676 LOC / 50 files                  |
 | Design tokens         | 0 (352 hardcoded hex)    | Full semantic layer, dark + light     |
 | Routing               | none (`useState` switch) | `HashRouter`, 7 routes, deep-linkable |
-| Tests                 | 0                        | 68                                    |
+| Tests                 | 0                        | 80                                    |
 | Lint / format         | none                     | ESLint (+`jsx-a11y`) / Prettier       |
 | `<label>` elements    | 0                        | every control                         |
 | `aria-*` attributes   | 0                        | throughout                            |
@@ -140,7 +140,7 @@ These are assets, not code, and cannot be generated honestly for you:
 Run these before you call it delivered.
 
 ```bash
-npm run ci                        # lint, format, types, 68 tests, build
+npm run ci                        # lint, format, types, 80 tests, build
 npm run preview                   # serve dist/ and click through it
 ```
 
@@ -190,9 +190,8 @@ Stated plainly so nothing is a surprise at handoff.
 - **No E2E suite.** Unit and integration tests cover the logic and rendering.
   Playwright flows were recommended in the audit but are not included here.
 - **Screenshots absent** (see §4).
-- **`react-router-dom` v6.** The build logs two v7 future-flag warnings. They
-  are informational; pin the flags in `<HashRouter future={…}>` if you want a
-  silent console.
+- **`react-router-dom` v7.** The app already targets the current major and no
+  longer relies on the old v6 future-flag warnings.
 
 ---
 
@@ -205,7 +204,7 @@ npm run dev       # http://localhost:3000
 ```
 
 Expected CI output: ESLint clean, Prettier clean, `tsc --noEmit` clean under
-`strict` + `noUnusedLocals` + `noUncheckedIndexedAccess`, **68 tests passing
+`strict` + `noUnusedLocals` + `noUncheckedIndexedAccess`, **80 tests passing
 across 6 files**, and a build producing ~12 chunks with route-level splitting.
 
 First paint is `react` (54 kB gz) + `dates` (7.9 kB gz) + `index` (19.2 kB gz).
