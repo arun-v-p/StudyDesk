@@ -577,6 +577,7 @@ export function MaterialsPage() {
             ? 'All nested folders and files will be deleted from this browser.'
             : 'The file and its stored content will be deleted.'
         }
+        undoHint={false}
         onCancel={() => setPendingDelete(null)}
         onConfirm={handleDelete}
       />

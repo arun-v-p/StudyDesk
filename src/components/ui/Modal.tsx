@@ -123,6 +123,7 @@ export function ConfirmDialog({
   title,
   description,
   confirmLabel = 'Delete',
+  undoHint = true,
   onConfirm,
   onCancel,
 }: {
@@ -130,6 +131,7 @@ export function ConfirmDialog({
   title: string;
   description?: string;
   confirmLabel?: string;
+  undoHint?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }) {
@@ -151,9 +153,11 @@ export function ConfirmDialog({
         </>
       }
     >
-      <p className="text-muted text-sm">
-        This cannot be undone from here, but the toast that follows offers an Undo.
-      </p>
+      {undoHint && (
+        <p className="text-muted text-sm">
+          This cannot be undone from here, but the toast that follows offers an Undo.
+        </p>
+      )}
     </Modal>
   );
 }

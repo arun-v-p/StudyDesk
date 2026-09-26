@@ -5,10 +5,11 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { IconButton } from '../components/ui/IconButton';
 import { Modal, ConfirmDialog } from '../components/ui/Modal';
 import { TextArea, TextField } from '../components/ui/Field';
-import { dayKey, toMinutes } from '../lib/dates';
+import { dayKey, isResolvableDayKey, toMinutes } from '../lib/dates';
 import { examStatus, useExamTimetable, type ExamStatus } from '../store/examTimetable';
 import { createId } from '../lib/id';
 import type { ExamTimetableEntry } from '../types';
+import { useStore } from '../store/AppStore';
 
 const EMPTY = (): Omit<ExamTimetableEntry, 'id'> => ({
   subject: '',
@@ -29,6 +30,7 @@ const statusTone: Record<ExamStatus, 'accent' | 'success' | 'neutral'> = {
 
 export function ExamTimetablePage() {
   const exams = useExamTimetable();
+  const { toast } = useStore();
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState(EMPTY);
   const [pendingDelete, setPendingDelete] = useState<ExamTimetableEntry | null>(null);
@@ -43,6 +45,10 @@ export function ExamTimetablePage() {
   );
 
   const submit = () => {
+    if (!isResolvableDayKey(form.date)) {
+      setFormError('Pick a valid exam date.');
+      return;
+    }
     if (
       !form.subject.trim() ||
       toMinutes(form.startTime) == null ||
@@ -220,8 +226,16 @@ export function ExamTimetablePage() {
         description="Expired exams are never deleted automatically."
         onCancel={() => setPendingDelete(null)}
         onConfirm={() => {
-          if (pendingDelete) exams.remove(pendingDelete.id);
+          const removed = pendingDelete ? exams.remove(pendingDelete.id) : null;
           setPendingDelete(null);
+          if (removed) {
+            toast({
+              message: `Deleted “${removed.item.subject}”`,
+              tone: 'danger',
+              undoLabel: 'Undo',
+              onUndo: () => exams.restore(removed.item, removed.index),
+            });
+          }
         }}
       />
     </div>
