@@ -49,7 +49,6 @@ const NotFoundPage = lazy(() =>
 function hasUsableLocation(): boolean {
   try {
     const href = window.location.href;
-    // eslint-disable-next-line no-new
     new URL(href);
     return href !== 'about:srcdoc' && href !== 'about:blank';
   } catch {

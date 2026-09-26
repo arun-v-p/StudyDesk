@@ -52,7 +52,7 @@ npm install
 npm run dev        # http://localhost:3000
 ```
 
-Requires Node 20+.
+Requires Node.js 20.19+ or 22.12+.
 
 | Script              | Purpose                               |
 | ------------------- | ------------------------------------- |
