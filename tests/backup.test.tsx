@@ -94,6 +94,8 @@ describe('backup data integrity', () => {
     const newMetadata = { v: 1, data: { subjects: [{ id: 'new' }], folders: [], files: [] } };
     localStorage.setItem(MATERIALS_KEY, oldMetadata);
     const reload = vi.fn();
+    const scheduleReload = vi.spyOn(window, 'setTimeout');
+    const cancelReload = vi.spyOn(window, 'clearTimeout');
     const testLocation = new Proxy(
       {},
       {
@@ -127,8 +129,22 @@ describe('backup data integrity', () => {
     const file = backupFile({ [MATERIALS_KEY]: newMetadata });
     fireEvent.change(fileInput, { target: { files: [file] } });
 
-    await user.click(await screen.findByRole('button', { name: 'Undo import' }));
+    const undoButton = await screen.findByRole('button', { name: 'Undo import' });
+    let reloadCallIndex = -1;
+    for (let index = scheduleReload.mock.calls.length - 1; index >= 0; index -= 1) {
+      if (scheduleReload.mock.calls[index]?.[1] === 8000) {
+        reloadCallIndex = index;
+        break;
+      }
+    }
+    const reloadTimeout = scheduleReload.mock.results[reloadCallIndex]?.value;
+    expect(reloadCallIndex).toBeGreaterThanOrEqual(0);
+    expect(scheduleReload.mock.calls[reloadCallIndex]).toEqual([expect.any(Function), 8000]);
+    expect(reloadTimeout).toBeDefined();
+
+    await user.click(undoButton);
     expect(localStorage.getItem(MATERIALS_KEY)).toBe(oldMetadata);
+    expect(cancelReload).toHaveBeenCalledWith(reloadTimeout);
     expect(reload).toHaveBeenCalledOnce();
   });
 

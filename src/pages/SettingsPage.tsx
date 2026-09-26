@@ -17,6 +17,8 @@ import { storage } from '../lib/safeStorage';
 import { useExamTimetable } from '../store/examTimetable';
 import { useMaterials } from '../store/materials';
 
+const IMPORT_TOAST_DURATION = 8000;
+
 /**
  * Settings: identity, theme, and the data escape hatch that the original
  * completely lacked (no export, no import, no way to clear).
@@ -57,17 +59,19 @@ export function SettingsPage() {
       if (!file) return;
       return importBackup(file).then((res) => {
         if (res.ok) {
+          let reloadTimeout: number | undefined;
           toast({
             message: `Imported ${res.keys} collection(s) — reloading`,
             tone: 'success',
             undoLabel: 'Undo import',
-            duration: 8000,
+            duration: IMPORT_TOAST_DURATION,
             onUndo: () => {
+              if (reloadTimeout != null) window.clearTimeout(reloadTimeout);
               restoreSnapshot(res.snapshot);
               window.location.reload();
             },
           });
-          window.setTimeout(() => window.location.reload(), 900);
+          reloadTimeout = window.setTimeout(() => window.location.reload(), IMPORT_TOAST_DURATION);
         } else {
           toast({ message: res.error, tone: 'danger', duration: 6000 });
         }
