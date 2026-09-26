@@ -4,7 +4,7 @@ import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { SearchPalette } from '../SearchPalette';
 import { useStore } from '../../store/AppStore';
-import { downloadBackup, importBackup } from '../../store/backup';
+import { downloadBackup, importBackup, pickBackupFile, restoreSnapshot } from '../../store/backup';
 import { storage } from '../../lib/safeStorage';
 
 export function AppShell() {
@@ -57,26 +57,26 @@ export function AppShell() {
   }, [toast]);
 
   const onImport = useCallback(() => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'application/json,.json';
-    input.className = 'sr-only';
-    input.setAttribute('aria-hidden', 'true');
-    input.addEventListener('change', () => {
-      const file = input.files?.[0];
+    void pickBackupFile().then((file) => {
       if (!file) return;
-      void importBackup(file).then((res) => {
+      return importBackup(file).then((res) => {
         if (res.ok) {
-          toast({ message: `Imported ${res.keys} collection(s) — reloading`, tone: 'success' });
+          toast({
+            message: `Imported ${res.keys} collection(s) — reloading`,
+            tone: 'success',
+            undoLabel: 'Undo import',
+            duration: 8000,
+            onUndo: () => {
+              restoreSnapshot(res.snapshot);
+              window.location.reload();
+            },
+          });
           window.setTimeout(() => window.location.reload(), 900);
         } else {
           toast({ message: res.error, tone: 'danger', duration: 6000 });
         }
       });
     });
-    document.body.appendChild(input);
-    input.click();
-    input.remove();
   }, [toast]);
 
   return (
