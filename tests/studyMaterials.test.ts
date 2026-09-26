@@ -33,9 +33,20 @@ describe('Study Materials persistence boundaries', () => {
     expect(Object.values(KEYS)).not.toContain(MATERIALS_KEY);
   });
 
-  it('keeps existing JSON backup output isolated from Study Materials metadata', () => {
-    localStorage.setItem(MATERIALS_KEY, JSON.stringify({ v: 1, data: EMPTY_MATERIALS }));
-    expect(exportBackup().data).not.toHaveProperty(MATERIALS_KEY);
+  it('backs up Study Materials metadata but never embeds file blob bytes', () => {
+    // The Phase 1 continuation mandate supersedes the prior test's exclusion of metadata.
+    const metadata = {
+      ...EMPTY_MATERIALS,
+      files: [{ id: 'file-1', blobId: 'blob-1', name: 'notes.pdf', sizeBytes: 10 }],
+    };
+    localStorage.setItem(MATERIALS_KEY, JSON.stringify({ v: 1, data: metadata }));
+    const backup = exportBackup();
+    expect(backup.data[MATERIALS_KEY]).toEqual({ v: 1, data: metadata });
+    const exportedMetadata = backup.data[MATERIALS_KEY] as {
+      data: { files: Array<Record<string, unknown>> };
+    };
+    expect(exportedMetadata.data.files[0]).not.toHaveProperty('blob');
+    expect(exportedMetadata.data.files[0]).not.toHaveProperty('content');
   });
 
   it('enforces the approved per-file size limit', () => {

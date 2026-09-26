@@ -44,7 +44,7 @@ export const LABELS: Record<TimerMode, string> = {
 /** Sessions after which a long break is offered. */
 export const LONG_BREAK_EVERY = 4;
 
-const STORAGE_KEY = 'studydesk.timer';
+export const TIMER_STORAGE_KEY = 'studydesk.timer';
 
 interface TimerPersist {
   /** Local yyyy-mm-dd the counts belong to. */
@@ -64,7 +64,7 @@ const localDay = (d = new Date()): string => {
 function loadPersisted(): TimerPersist {
   const empty: TimerPersist = { day: localDay(), completed: 0, focusSeconds: 0 };
   try {
-    const raw = storage.getItem(STORAGE_KEY);
+    const raw = storage.getItem(TIMER_STORAGE_KEY);
     if (!raw) return empty;
     const parsed = JSON.parse(raw) as Partial<TimerPersist>;
     // Auto-reset when the stored day is not today.
@@ -100,7 +100,7 @@ export function usePomodoro({ onComplete, durations }: UsePomodoroOptions = {}) 
 
   /* --- persist stats --- */
   useEffect(() => {
-    if (!storage.setItem(STORAGE_KEY, JSON.stringify(stats))) {
+    if (!storage.setItem(TIMER_STORAGE_KEY, JSON.stringify(stats))) {
       console.warn('[studydesk] timer stats not persisted:', storage.reason);
     }
   }, [stats]);

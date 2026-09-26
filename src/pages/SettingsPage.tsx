@@ -4,10 +4,20 @@ import { useStore, KEYS } from '../store/AppStore';
 import { Card, CardHeader } from '../components/ui/Card';
 import { Modal, ConfirmDialog } from '../components/ui/Modal';
 import { Select, TextField } from '../components/ui/Field';
-import { downloadBackup, importBackup, clearAllData } from '../store/backup';
+import {
+  downloadBackup,
+  importBackup,
+  clearAllData,
+  pickBackupFile,
+  restoreSnapshot,
+} from '../store/backup';
 import { loadSampleTerm, isFirstRun } from '../store/seed';
 import { purgeLegacyKeys } from '../store/legacyMigration';
 import { storage } from '../lib/safeStorage';
+import { useExamTimetable } from '../store/examTimetable';
+import { useMaterials } from '../store/materials';
+
+const IMPORT_TOAST_DURATION = 8000;
 
 /**
  * Settings: identity, theme, and the data escape hatch that the original
@@ -16,6 +26,8 @@ import { storage } from '../lib/safeStorage';
 export function SettingsPage() {
   const { settings, updateSettings, toast, tasks, deadlines, timetable, notes, planner } =
     useStore();
+  const exams = useExamTimetable();
+  const materials = useMaterials();
   const [name, setName] = useState(settings.displayName);
   const [confirmClear, setConfirmClear] = useState(false);
   const [confirmSample, setConfirmSample] = useState(false);
@@ -28,6 +40,8 @@ export function SettingsPage() {
     ['Classes', timetable.items.length],
     ['Notes', notes.items.length],
     ['Planner entries', planner.items.length],
+    ['Exams', exams.items.length],
+    ['Material files', materials.metadata.files.length],
   ] as const;
 
   const onExport = () => {
@@ -41,25 +55,28 @@ export function SettingsPage() {
   };
 
   const onImport = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'application/json,.json';
-    input.className = 'sr-only';
-    input.addEventListener('change', () => {
-      const file = input.files?.[0];
+    void pickBackupFile().then((file) => {
       if (!file) return;
-      void importBackup(file).then((res) => {
+      return importBackup(file).then((res) => {
         if (res.ok) {
-          toast({ message: `Imported ${res.keys} collection(s) — reloading`, tone: 'success' });
-          window.setTimeout(() => window.location.reload(), 900);
+          let reloadTimeout: number | undefined;
+          toast({
+            message: `Imported ${res.keys} collection(s) — reloading`,
+            tone: 'success',
+            undoLabel: 'Undo import',
+            duration: IMPORT_TOAST_DURATION,
+            onUndo: () => {
+              if (reloadTimeout != null) window.clearTimeout(reloadTimeout);
+              restoreSnapshot(res.snapshot);
+              window.location.reload();
+            },
+          });
+          reloadTimeout = window.setTimeout(() => window.location.reload(), IMPORT_TOAST_DURATION);
         } else {
           toast({ message: res.error, tone: 'danger', duration: 6000 });
         }
       });
     });
-    document.body.appendChild(input);
-    input.click();
-    input.remove();
   };
 
   const onSample = () => {
@@ -141,8 +158,9 @@ export function SettingsPage() {
 
         <p className="border-border bg-sunken text-muted mt-4 rounded-md border p-3 text-xs leading-relaxed">
           Data lives in <code className="text-2xs font-mono">{Object.values(KEYS).join(', ')}</code>
-          . It does not sync between browsers or devices, and clearing site data removes it — export
-          a backup before doing either.
+          , plus exams, Study Materials metadata and timer stats. Backups include those records, but
+          not Study Materials file blobs stored in IndexedDB; imported file records may therefore
+          refer to files that are not present. Data does not sync between browsers or devices.
         </p>
       </Card>
 
@@ -153,7 +171,8 @@ export function SettingsPage() {
       <Card className="border-danger/40">
         <CardHeader title="Danger zone" />
         <p className="text-muted mb-4 text-sm">
-          Removes every task, deadline, class, note and planner entry from this browser.
+          Removes all StudyDesk data from this browser, including exams, study materials and timer
+          stats.
         </p>
         <button type="button" className="btn btn--danger" onClick={() => setConfirmClear(true)}>
           <Trash2 className="h-4 w-4" aria-hidden="true" /> Clear all data
@@ -193,7 +212,8 @@ export function SettingsPage() {
       <ConfirmDialog
         open={confirmClear}
         title="Clear all data?"
-        description="This removes everything from this browser. Export a backup first if you might want it later."
+        description="Removes all StudyDesk data from this browser, including exams, study materials and timer stats."
+        undoHint={false}
         confirmLabel="Delete everything"
         onCancel={() => setConfirmClear(false)}
         onConfirm={onClear}
