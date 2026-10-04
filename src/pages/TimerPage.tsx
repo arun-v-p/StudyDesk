@@ -3,6 +3,8 @@ import { Pause, Play, RotateCcw, SkipForward, Volume2, VolumeX } from 'lucide-re
 import { useStore } from '../store/AppStore';
 import { Card } from '../components/ui/Card';
 import { IconButton } from '../components/ui/IconButton';
+import { Select } from '../components/ui/Field';
+import { addFocusMinutes } from '../features/tasks/workload';
 import {
   usePomodoro,
   playChime,
@@ -15,8 +17,10 @@ import {
 const MODES: TimerMode[] = ['focus', 'shortBreak', 'longBreak'];
 
 export function TimerPage() {
-  const { toast } = useStore();
+  const { toast, tasks } = useStore();
   const [sound, setSound] = useState(true);
+  const [selectedTaskId, setSelectedTaskId] = useState('');
+  const [sessionTaskId, setSessionTaskId] = useState('');
   const [notificationStatus, setNotificationStatus] = useState<
     'granted' | 'default' | 'denied' | 'unsupported'
   >('unsupported');
@@ -35,6 +39,13 @@ export function TimerPage() {
 
   const onComplete = useCallback(
     (mode: TimerMode, completedToday: number) => {
+      if (mode === 'focus' && sessionTaskId) {
+        const task = tasks.items.find((item) => item.id === sessionTaskId);
+        if (task) {
+          // A completed session is added exactly once by usePomodoro's completion transition.
+          tasks.update(task.id, { actualFocusMinutes: addFocusMinutes(task, 25) });
+        }
+      }
       if (sound) playChime(mode === 'focus' ? 'done' : 'break');
       toast({
         message:
@@ -55,7 +66,7 @@ export function TimerPage() {
         }
       }
     },
-    [notificationStatus, sound, toast],
+    [notificationStatus, sessionTaskId, sound, tasks, toast],
   );
 
   const t = usePomodoro({ onComplete });
@@ -109,6 +120,7 @@ export function TimerPage() {
       else setSoundStatus(null);
       if (unlocked) playChime('start');
     }
+    if (!t.isRunning && t.mode === 'focus') setSessionTaskId(selectedTaskId);
     t.toggle();
   };
 
@@ -222,6 +234,26 @@ export function TimerPage() {
         >
           <SkipForward className="h-[18px] w-[18px]" aria-hidden="true" />
         </IconButton>
+      </div>
+
+      <div className="w-full">
+        <Select
+          label="Attribute this focus session to a task"
+          value={selectedTaskId}
+          onChange={(event) => setSelectedTaskId(event.target.value)}
+          disabled={t.isRunning && t.mode === 'focus'}
+          hint={
+            t.isRunning && t.mode === 'focus'
+              ? 'Task attribution is locked until this session ends.'
+              : 'Optional. Unassigned sessions remain part of your daily focus total only.'
+          }
+          options={[
+            { value: '', label: 'No task (general focus)' },
+            ...tasks.items
+              .filter((task) => !task.completed)
+              .map((task) => ({ value: task.id, label: task.title })),
+          ]}
+        />
       </div>
 
       {/* Pomodoro cycle: the original promised a long break every 4 sessions but never tracked it. */}

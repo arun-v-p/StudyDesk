@@ -92,6 +92,25 @@ export const materialBlobs = {
     blobRequest<IDBValidKey[]>((store) => store.getAllKeys()).then((keys) =>
       keys.filter((key): key is string => typeof key === 'string'),
     ),
+  /** Replace the complete blob store in one IndexedDB transaction. */
+  replaceAll: (entries: Array<{ id: string; blob: Blob }>) =>
+    openDatabase().then(
+      (db) =>
+        new Promise<void>((resolve, reject) => {
+          const tx = db.transaction(BLOB_STORE, 'readwrite');
+          const store = tx.objectStore(BLOB_STORE);
+          store.clear();
+          for (const entry of entries) store.put(entry.blob, entry.id);
+          tx.oncomplete = () => {
+            db.close();
+            resolve();
+          };
+          tx.onabort = tx.onerror = () => {
+            db.close();
+            reject(tx.error ?? new Error('Material storage operation failed.'));
+          };
+        }),
+    ),
 };
 
 export async function cleanupOrphanMaterialBlobs(metadata = readMetadata()): Promise<number> {

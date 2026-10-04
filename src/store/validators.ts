@@ -8,6 +8,7 @@
  */
 import { isResolvableDayKey, toMinutes } from '../lib/dates';
 import { CATEGORIES, PRIORITIES } from '../types';
+import { isValidMinutes } from '../features/tasks/workload';
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -15,7 +16,22 @@ const isRecord = (v: unknown): v is Record<string, unknown> =>
 const isStr = (v: unknown): v is string => typeof v === 'string';
 
 export function isValidTask(v: unknown): boolean {
-  return isRecord(v) && isStr(v.id) && isStr(v.title) && typeof v.completed === 'boolean';
+  if (!isRecord(v) || !isStr(v.id) || !isStr(v.title) || typeof v.completed !== 'boolean')
+    return false;
+  if (v.estimatedMinutes !== undefined && !isValidMinutes(v.estimatedMinutes)) return false;
+  if (v.actualFocusMinutes !== undefined && !isValidMinutes(v.actualFocusMinutes)) return false;
+  if (v.subtasks !== undefined && (!Array.isArray(v.subtasks) || !v.subtasks.every(isValidSubtask)))
+    return false;
+  return true;
+}
+
+function isValidSubtask(v: unknown): boolean {
+  return (
+    isRecord(v) &&
+    isStr(v.id) &&
+    isStr(v.title) &&
+    (v.completed === undefined || typeof v.completed === 'boolean')
+  );
 }
 
 export function isValidDeadline(v: unknown): boolean {

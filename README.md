@@ -109,8 +109,10 @@ are dropped individually and reported, rather than crashing the app. To change a
 `SCHEMA_VERSION` and append a migration — existing users are carried over.
 
 **Export regularly.** Local storage is per-browser and per-origin; clearing site data or switching
-devices starts from empty. Settings → Export writes a JSON backup, and Import validates the whole
-file before writing anything.
+devices starts from empty. Settings → Export writes a complete portable ZIP archive containing
+metadata and Study Materials files. Each archive entry has a SHA-256 digest and restore validates
+the full archive before replacing anything. Older JSON metadata backups remain importable, but
+cannot restore attachment files.
 
 Upgrading from the previous build? `legacyMigration.ts` copies your existing `studydesk_*` records
 into the new format on first launch, idempotently and without deleting the originals. See

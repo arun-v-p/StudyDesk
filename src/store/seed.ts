@@ -88,6 +88,8 @@ export function buildSampleTasks(now = new Date()): Task[] {
     title,
     completed,
     createdAt: iso,
+    estimatedMinutes: 0,
+    subtasks: [],
   }));
 }
 
@@ -177,6 +179,7 @@ export function buildSampleDeadlines(now = new Date()): Deadline[] {
  */
 export function buildSampleTimetable(): TimetableEntry[] {
   const rows: [number, string, string, string, string, string][] = [
+    [0, '10:00', '11:00', 'Weekly Review', 'Online', 'Plan the coming study week'],
     [1, '09:00', '10:30', 'Linear Algebra', 'A-101', 'Bring the problem set'],
     [1, '14:00', '15:30', 'Thermodynamics', 'B-204', ''],
     [

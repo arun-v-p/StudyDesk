@@ -50,7 +50,7 @@ export function AppShell() {
 
   const onExport = useCallback(() => {
     try {
-      downloadBackup();
+      void downloadBackup();
       toast({ message: 'Backup downloaded', tone: 'success' });
     } catch (err) {
       console.error(err);
@@ -59,6 +59,12 @@ export function AppShell() {
   }, [toast]);
 
   const onImport = useCallback(() => {
+    if (
+      !window.confirm(
+        'Restoring replaces all current StudyDesk records and attachments in this browser. Choose a backup only if you want to continue.',
+      )
+    )
+      return;
     void pickBackupFile().then((file) => {
       if (!file) return;
       return importBackup(file).then((res) => {
@@ -71,8 +77,7 @@ export function AppShell() {
             duration: IMPORT_TOAST_DURATION,
             onUndo: () => {
               if (reloadTimeout != null) window.clearTimeout(reloadTimeout);
-              restoreSnapshot(res.snapshot);
-              window.location.reload();
+              void restoreSnapshot(res.snapshot).then(() => window.location.reload());
             },
           });
           reloadTimeout = window.setTimeout(() => window.location.reload(), IMPORT_TOAST_DURATION);
