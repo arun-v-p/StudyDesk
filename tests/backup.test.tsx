@@ -125,6 +125,7 @@ describe('backup data integrity', () => {
       </MemoryRouter>,
     );
     await user.click(screen.getByRole('button', { name: /Import backup/i }));
+    await user.click(screen.getByRole('button', { name: /Choose backup and replace data/i }));
     if (!fileInput) throw new Error('Backup file picker was not opened.');
     const file = backupFile({ [MATERIALS_KEY]: newMetadata });
     fireEvent.change(fileInput, { target: { files: [file] } });

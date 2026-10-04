@@ -11,6 +11,18 @@ export interface Task {
   dueDate?: string;
   createdAt: string;
   completedAt?: string;
+  /** Planned effort in whole minutes. Zero means that no estimate was set. */
+  estimatedMinutes: number;
+  /** Focus minutes explicitly recorded against this task. */
+  actualFocusMinutes?: number;
+  subtasks: TaskSubtask[];
+}
+
+export interface TaskSubtask {
+  id: string;
+  title: string;
+  /** Absent on legacy data is treated as incomplete. */
+  completed?: boolean;
 }
 
 export interface Deadline {

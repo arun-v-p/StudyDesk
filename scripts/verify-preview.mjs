@@ -7,7 +7,7 @@ import fs from 'fs';
 const file = process.argv[2];
 let html = fs.readFileSync(file, 'utf8');
 const before = html.length;
-html = html.replace('<script type="module" crossorigin>', '<script>');
+html = html.replace(/<script\b[^>]*type="module"[^>]*>/gi, '<script>');
 // The bundle is fully inlined (inlineDynamicImports), so every import.meta.url
 // is an unused argument to an already-resolved lazy chunk. Shim it so the code
 // parses as a classic script under jsdom.

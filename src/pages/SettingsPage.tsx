@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AlertTriangle, Download, Sparkles, Trash2, Upload } from 'lucide-react';
-import { useStore, KEYS } from '../store/AppStore';
+import { useStore } from '../store/AppStore';
 import { Card, CardHeader } from '../components/ui/Card';
 import { Modal, ConfirmDialog } from '../components/ui/Modal';
 import { Select, TextField } from '../components/ui/Field';
@@ -31,6 +31,8 @@ export function SettingsPage() {
   const [name, setName] = useState(settings.displayName);
   const [confirmClear, setConfirmClear] = useState(false);
   const [confirmSample, setConfirmSample] = useState(false);
+  const [confirmRestore, setConfirmRestore] = useState(false);
+  const [backupStatus, setBackupStatus] = useState<string | null>(null);
 
   useEffect(() => setName(settings.displayName), [settings.displayName]);
 
@@ -45,30 +47,34 @@ export function SettingsPage() {
   ] as const;
 
   const onExport = () => {
-    try {
-      downloadBackup();
-      toast({ message: 'Backup downloaded as JSON', tone: 'success' });
-    } catch (err) {
-      console.error(err);
-      toast({ message: 'Export failed', tone: 'danger' });
-    }
+    void downloadBackup((progress) => setBackupStatus(progress.message))
+      .then(() => {
+        setBackupStatus(null);
+        toast({ message: 'Complete backup downloaded', tone: 'success' });
+      })
+      .catch((err) => {
+        setBackupStatus(null);
+        console.error(err);
+        toast({ message: err instanceof Error ? err.message : 'Export failed', tone: 'danger' });
+      });
   };
 
   const onImport = () => {
+    setConfirmRestore(false);
     void pickBackupFile().then((file) => {
       if (!file) return;
-      return importBackup(file).then((res) => {
+      return importBackup(file, (progress) => setBackupStatus(progress.message)).then((res) => {
+        setBackupStatus(null);
         if (res.ok) {
           let reloadTimeout: number | undefined;
           toast({
-            message: `Imported ${res.keys} collection(s) — reloading`,
+            message: `Restored ${res.keys} collection(s) and ${res.attachments} attachment(s)${res.legacy ? ' (legacy metadata-only backup)' : ''} — reloading`,
             tone: 'success',
             undoLabel: 'Undo import',
             duration: IMPORT_TOAST_DURATION,
             onUndo: () => {
               if (reloadTimeout != null) window.clearTimeout(reloadTimeout);
-              restoreSnapshot(res.snapshot);
-              window.location.reload();
+              void restoreSnapshot(res.snapshot).then(() => window.location.reload());
             },
           });
           reloadTimeout = window.setTimeout(() => window.location.reload(), IMPORT_TOAST_DURATION);
@@ -148,7 +154,7 @@ export function SettingsPage() {
           <button type="button" className="btn btn--primary" onClick={onExport}>
             <Download className="h-4 w-4" aria-hidden="true" /> Export backup
           </button>
-          <button type="button" className="btn btn--ghost" onClick={onImport}>
+          <button type="button" className="btn btn--ghost" onClick={() => setConfirmRestore(true)}>
             <Upload className="h-4 w-4" aria-hidden="true" /> Import backup
           </button>
           <button type="button" className="btn btn--ghost" onClick={() => setConfirmSample(true)}>
@@ -157,11 +163,16 @@ export function SettingsPage() {
         </div>
 
         <p className="border-border bg-sunken text-muted mt-4 rounded-md border p-3 text-xs leading-relaxed">
-          Data lives in <code className="text-2xs font-mono">{Object.values(KEYS).join(', ')}</code>
-          , plus exams, Study Materials metadata and timer stats. Backups include those records, but
-          not Study Materials file blobs stored in IndexedDB; imported file records may therefore
-          refer to files that are not present. Data does not sync between browsers or devices.
+          Export creates a complete, offline ZIP archive: your records, Study Materials metadata,
+          and attachment files. Import replaces all current StudyDesk data in this browser after
+          validating the archive. Older JSON backups can still be imported, but contain metadata
+          only and cannot restore attachment files. Data does not sync between browsers or devices.
         </p>
+        {backupStatus && (
+          <p role="status" className="text-muted mt-3 text-sm">
+            {backupStatus}
+          </p>
+        )}
       </Card>
 
       <LegacyDataCard
@@ -217,6 +228,15 @@ export function SettingsPage() {
         confirmLabel="Delete everything"
         onCancel={() => setConfirmClear(false)}
         onConfirm={onClear}
+      />
+      <ConfirmDialog
+        open={confirmRestore}
+        title="Replace all StudyDesk data?"
+        description="Restoring replaces your current StudyDesk records and attachments in this browser. Export a backup first if you may need the current data."
+        undoHint={false}
+        confirmLabel="Choose backup and replace data"
+        onCancel={() => setConfirmRestore(false)}
+        onConfirm={onImport}
       />
     </div>
   );

@@ -1,17 +1,27 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
-import { Check, Clock, MapPin, Plus, Trash2 } from 'lucide-react';
+import { Check, Clock, ListChecks, MapPin, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useStore } from '../store/AppStore';
 import { useNow } from '../hooks/useNow';
 import { Card, CardHeader, Chip, ActionLink } from '../components/ui/Card';
 import { EmptyState } from '../components/ui/EmptyState';
 import { IconButton } from '../components/ui/IconButton';
 import { TextField } from '../components/ui/Field';
+import { Modal } from '../components/ui/Modal';
 import { dayKey, isValidDayKey } from '../lib/dates';
 import { deadlineStatus, relativeDue, sortDeadlines, STATUS_TONE } from '../lib/status';
 import { entriesForDay, subjectColors, subjectHue } from '../features/timetable/layout';
 import type { ResolvedTheme } from '../hooks/useTheme';
+import type { Task, TaskSubtask } from '../types';
+import {
+  completedSubtasks,
+  isValidMinutes,
+  MAX_TASK_MINUTES,
+  taskCompletionPatch,
+  taskWorkloadLabel,
+} from '../features/tasks/workload';
+import { createId } from '../lib/id';
 
 function greeting(hour: number): string {
   if (hour < 12) return 'Good morning';
@@ -23,6 +33,7 @@ export function TodayPage({ theme }: { theme: ResolvedTheme }) {
   const now = useNow(60_000);
   const { tasks, deadlines, timetable, notes, planner, settings, newTask, toast } = useStore();
   const [draft, setDraft] = useState('');
+  const [editing, setEditing] = useState<Task | null>(null);
 
   const todayKey = dayKey(now);
 
@@ -217,22 +228,31 @@ export function TodayPage({ theme }: { theme: ResolvedTheme }) {
                         aria-checked={false}
                         aria-label={`Mark “${task.title}” as done`}
                         onClick={() => {
-                          tasks.update(task.id, {
-                            completed: true,
-                            completedAt: new Date().toISOString(),
-                          });
+                          tasks.update(task.id, taskCompletionPatch(task, true));
                           toast({ message: 'Task completed', tone: 'success' });
                         }}
                         className="checkbox"
                       >
                         <Check className="h-3 w-3" aria-hidden="true" strokeWidth={3.4} />
                       </button>
-                      <span className="text-fg min-w-0 flex-1 truncate text-sm">{task.title}</span>
+                      <div className="min-w-0 flex-1">
+                        <span className="text-fg block truncate text-sm">{task.title}</span>
+                        <span className="text-subtle block truncate text-xs">
+                          {taskWorkloadLabel(task)}
+                        </span>
+                      </div>
                       {overdue && <Chip tone="danger">Overdue</Chip>}
                       {isValidDayKey(task.dueDate) && task.dueDate === todayKey && (
                         <Chip tone="warning">Today</Chip>
                       )}
                       <span className="row-actions flex gap-0.5">
+                        <IconButton
+                          aria-label={`Edit “${task.title}”`}
+                          size="sm"
+                          onClick={() => setEditing(task)}
+                        >
+                          <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                        </IconButton>
                         <IconButton
                           aria-label={`Delete “${task.title}”`}
                           tone="danger"
@@ -248,6 +268,17 @@ export function TodayPage({ theme }: { theme: ResolvedTheme }) {
               </ul>
             )}
           </Card>
+
+          <TaskEditor
+            task={editing}
+            onClose={() => setEditing(null)}
+            onSave={(patch) => {
+              if (!editing) return;
+              tasks.update(editing.id, patch);
+              setEditing(null);
+              toast({ message: 'Task plan updated', tone: 'success' });
+            }}
+          />
 
           {/* Schedule */}
           <Card>
@@ -396,6 +427,260 @@ export function TodayPage({ theme }: { theme: ResolvedTheme }) {
         </div>
       </div>
     </div>
+  );
+}
+
+function TaskEditor({
+  task,
+  onClose,
+  onSave,
+}: {
+  task: Task | null;
+  onClose: () => void;
+  onSave: (patch: Partial<Task>) => void;
+}) {
+  const [title, setTitle] = useState('');
+  const [estimated, setEstimated] = useState('');
+  const [actual, setActual] = useState('');
+  const [subtasks, setSubtasks] = useState<TaskSubtask[]>([]);
+  const [subtaskDraft, setSubtaskDraft] = useState('');
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const openedTask = task;
+  useEffect(() => {
+    if (!openedTask) return;
+    setTitle(openedTask.title);
+    setEstimated(openedTask.estimatedMinutes ? String(openedTask.estimatedMinutes) : '');
+    setActual(openedTask.actualFocusMinutes != null ? String(openedTask.actualFocusMinutes) : '');
+    setSubtasks(openedTask.subtasks);
+    setSubtaskDraft('');
+    setErrors({});
+  }, [openedTask]);
+
+  if (!openedTask) return null;
+
+  const save = () => {
+    const nextErrors: Record<string, string> = {};
+    const trimmed = title.trim();
+    if (!trimmed) nextErrors.title = 'Task title is required.';
+    const estimateValue = estimated.trim() === '' ? 0 : Number(estimated);
+    const actualValue = actual.trim() === '' ? undefined : Number(actual);
+    if (!isValidMinutes(estimateValue)) {
+      nextErrors.estimated = `Enter a whole number from 0 to ${MAX_TASK_MINUTES.toLocaleString()} minutes.`;
+    }
+    if (actualValue !== undefined && !isValidMinutes(actualValue)) {
+      nextErrors.actual = `Enter a whole number from 0 to ${MAX_TASK_MINUTES.toLocaleString()} minutes.`;
+    }
+    if (Object.keys(nextErrors).length) {
+      setErrors(nextErrors);
+      return;
+    }
+    onSave({
+      title: trimmed,
+      estimatedMinutes: estimateValue,
+      ...(actualValue === undefined
+        ? { actualFocusMinutes: undefined }
+        : { actualFocusMinutes: actualValue }),
+      subtasks,
+    });
+  };
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title="Plan task"
+      description="Completing this task will complete any remaining subtasks; reopening it keeps their completion state."
+      footer={
+        <>
+          <button type="button" className="btn btn--ghost" onClick={onClose}>
+            Cancel
+          </button>
+          <button type="button" className="btn btn--primary" onClick={save}>
+            Save task plan
+          </button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <TextField
+          label="Task"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          error={errors.title}
+          required
+        />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <TextField
+            label="Estimated effort (minutes)"
+            type="number"
+            min="0"
+            max={MAX_TASK_MINUTES}
+            step="1"
+            inputMode="numeric"
+            value={estimated}
+            onChange={(e) => setEstimated(e.target.value)}
+            error={errors.estimated}
+            hint="Leave blank when you do not want an estimate."
+          />
+          <TextField
+            label="Recorded focus time (minutes)"
+            type="number"
+            min="0"
+            max={MAX_TASK_MINUTES}
+            step="1"
+            inputMode="numeric"
+            value={actual}
+            onChange={(e) => setActual(e.target.value)}
+            error={errors.actual}
+            hint="Timer-attributed sessions are added here."
+          />
+        </div>
+        <div>
+          <p className="field-label">Subtasks</p>
+          <div className="flex gap-2">
+            <input
+              className="field-input"
+              aria-label="New subtask"
+              value={subtaskDraft}
+              onChange={(e) => setSubtaskDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  const next = subtaskDraft.trim();
+                  if (next) {
+                    setSubtasks((items) => [
+                      ...items,
+                      { id: createId(), title: next, completed: false },
+                    ]);
+                    setSubtaskDraft('');
+                  }
+                }
+              }}
+              placeholder="Add a next action…"
+            />
+            <button
+              type="button"
+              className="btn btn--ghost"
+              onClick={() => {
+                const next = subtaskDraft.trim();
+                if (next) {
+                  setSubtasks((items) => [
+                    ...items,
+                    { id: createId(), title: next, completed: false },
+                  ]);
+                  setSubtaskDraft('');
+                }
+              }}
+            >
+              Add
+            </button>
+          </div>
+          {subtasks.length > 0 && (
+            <p className="text-subtle mt-2 text-xs">
+              {completedSubtasks(subtasks)} of {subtasks.length} complete. Use arrows to reorder.
+            </p>
+          )}
+          <ul className="mt-2 space-y-1">
+            {subtasks.map((subtask, index) => (
+              <li
+                key={subtask.id}
+                className="border-border flex items-center gap-2 rounded border p-2"
+              >
+                <button
+                  type="button"
+                  role="checkbox"
+                  aria-checked={subtask.completed === true}
+                  aria-label={`Mark subtask “${subtask.title}” as ${subtask.completed ? 'incomplete' : 'complete'}`}
+                  className="checkbox shrink-0"
+                  onClick={() =>
+                    setSubtasks((items) =>
+                      items.map((item) =>
+                        item.id === subtask.id ? { ...item, completed: !item.completed } : item,
+                      ),
+                    )
+                  }
+                >
+                  <Check className="h-3 w-3" aria-hidden="true" />
+                </button>
+                <input
+                  className="min-w-0 flex-1 bg-transparent text-sm"
+                  aria-label="Subtask title"
+                  value={subtask.title}
+                  onChange={(e) =>
+                    setSubtasks((items) =>
+                      items.map((item) =>
+                        item.id === subtask.id ? { ...item, title: e.target.value } : item,
+                      ),
+                    )
+                  }
+                />
+                <button
+                  type="button"
+                  className="btn btn--ghost !min-h-7 !px-2 !py-1 text-xs"
+                  disabled={index === 0}
+                  onClick={() =>
+                    setSubtasks((items) => {
+                      const next = [...items];
+                      [next[index - 1], next[index]] = [next[index]!, next[index - 1]!];
+                      return next;
+                    })
+                  }
+                >
+                  Up
+                </button>
+                <button
+                  type="button"
+                  className="btn btn--ghost !min-h-7 !px-2 !py-1 text-xs"
+                  disabled={index === subtasks.length - 1}
+                  onClick={() =>
+                    setSubtasks((items) => {
+                      const next = [...items];
+                      [next[index], next[index + 1]] = [next[index + 1]!, next[index]!];
+                      return next;
+                    })
+                  }
+                >
+                  Down
+                </button>
+                <IconButton
+                  aria-label={`Remove subtask “${subtask.title}”`}
+                  tone="danger"
+                  size="sm"
+                  onClick={() =>
+                    setSubtasks((items) => items.filter((item) => item.id !== subtask.id))
+                  }
+                >
+                  <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                </IconButton>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <TaskWorkloadPreview estimated={estimated} actual={actual} subtasks={subtasks} />
+      </div>
+    </Modal>
+  );
+}
+
+function TaskWorkloadPreview({
+  estimated,
+  actual,
+  subtasks,
+}: {
+  estimated: string;
+  actual: string;
+  subtasks: TaskSubtask[];
+}) {
+  const estimate = isValidMinutes(Number(estimated)) ? Number(estimated) : 0;
+  const focused = isValidMinutes(Number(actual)) ? Number(actual) : 0;
+  const remaining = estimate > 0 ? Math.max(0, estimate - focused) : null;
+  return (
+    <p className="bg-sunken text-subtle flex items-center gap-1.5 rounded p-3 text-xs">
+      <ListChecks className="h-3.5 w-3.5" aria-hidden="true" /> Estimate: {estimate || '—'}m ·
+      Focused: {focused}m{remaining != null ? ` · Remaining: ${remaining}m` : ''}
+      {subtasks.length ? ` · ${completedSubtasks(subtasks)}/${subtasks.length} subtasks` : ''}
+    </p>
   );
 }
 

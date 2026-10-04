@@ -33,6 +33,7 @@ import {
   type TimetableEntry,
 } from '../types';
 import { ToastHost, useToastController, type ToastInput } from '../components/ui/Toast';
+import { migrateTaskData } from '../features/tasks/workload';
 
 export const KEYS = {
   tasks: 'studydesk.tasks',
@@ -96,6 +97,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     key: KEYS.tasks,
     fallback: [],
     validateItem: isValidTask,
+    migrations: [(data) => data, migrateTaskData],
     onError: onStorageError,
   });
   const deadlines = useCollection<Deadline>({
@@ -140,6 +142,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       completed: false,
       ...(dueDate ? { dueDate } : {}),
       createdAt: new Date().toISOString(),
+      estimatedMinutes: 0,
+      subtasks: [],
     }),
     [],
   );
