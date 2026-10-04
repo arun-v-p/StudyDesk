@@ -68,6 +68,40 @@ describe('backup data integrity', () => {
           updatedAt: '2026-10-19T10:00:00.000Z',
         },
       ],
+      [KEYS.calendarEvents]: [
+        {
+          id: 'event-1',
+          uid: 'event@example.test',
+          title: 'Study group',
+          description: 'Review chapters',
+          location: 'Library',
+          startDate: '2026-10-20',
+          endDate: '2026-10-20',
+          allDay: false,
+          startTime: '10:00',
+          endTime: '11:00',
+          createdAt: '2026-10-01T00:00:00.000Z',
+          updatedAt: '2026-10-01T00:00:00.000Z',
+        },
+      ],
+      [KEYS.semesterTemplates]: [
+        {
+          id: 'template-1',
+          name: 'Autumn 2026',
+          timetable: [
+            {
+              day: 1,
+              startTime: '09:00',
+              endTime: '10:00',
+              subject: 'Physics',
+              room: 'B-204',
+              note: '',
+            },
+          ],
+          createdAt: '2026-10-01T00:00:00.000Z',
+          updatedAt: '2026-10-01T00:00:00.000Z',
+        },
+      ],
       [KEYS.settings]: { theme: 'dark' },
       [EXAM_TIMETABLE_KEY]: [{ id: 'exam-1', subject: 'Calculus' }],
       [MATERIALS_KEY]: { v: 1, data: { subjects: [], folders: [], files: [] } },
@@ -94,10 +128,16 @@ describe('backup data integrity', () => {
 
   it('still imports a legacy six-key backup', async () => {
     // Adding feature-specific backup keys must not invalidate backups made before those features existed.
+    const legacyKeys = [
+      KEYS.tasks,
+      KEYS.deadlines,
+      KEYS.timetable,
+      KEYS.notes,
+      KEYS.planner,
+      KEYS.settings,
+    ];
     const legacyData = Object.fromEntries(
-      Object.values(KEYS)
-        .filter((key) => key !== KEYS.revisionPlans)
-        .map((key) => [key, key === KEYS.settings ? { theme: 'light' } : []]),
+      legacyKeys.map((key) => [key, key === KEYS.settings ? { theme: 'light' } : []]),
     );
     const result = await importBackup(backupFile(legacyData));
     expect(result).toMatchObject({ ok: true, keys: 6 });

@@ -16,20 +16,24 @@ import {
 } from 'react';
 import { useCollection, usePersistentState } from './usePersistentState';
 import {
+  isValidCalendarEvent,
   isValidDeadline,
   isValidNote,
   isValidPlannerEntry,
   isValidRevisionPlan,
+  isValidSemesterTemplate,
   isValidTask,
   isValidTimetableEntry,
 } from './validators';
 import { createId } from '../lib/id';
 import {
   DEFAULT_SETTINGS,
+  type CalendarEvent,
   type Deadline,
   type Note,
   type PlannerEntry,
   type RevisionPlan,
+  type SemesterTemplate,
   type Settings,
   type Task,
   type TimetableEntry,
@@ -44,6 +48,8 @@ export const KEYS = {
   notes: 'studydesk.notes',
   planner: 'studydesk.planner',
   revisionPlans: 'studydesk.revisionPlans',
+  calendarEvents: 'studydesk.calendarEvents',
+  semesterTemplates: 'studydesk.semesterTemplates',
   settings: 'studydesk.settings',
 } as const;
 
@@ -64,6 +70,8 @@ interface StoreValue {
   notes: Collection<Note>;
   planner: Collection<PlannerEntry>;
   revisionPlans: Collection<RevisionPlan>;
+  calendarEvents: Collection<CalendarEvent>;
+  semesterTemplates: Collection<SemesterTemplate>;
   settings: Settings;
   updateSettings: (patch: Partial<Settings>) => void;
   /** Factory helpers so pages never hand-build an id or timestamp. */
@@ -134,6 +142,18 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     validateItem: isValidRevisionPlan,
     onError: onStorageError,
   });
+  const calendarEvents = useCollection<CalendarEvent>({
+    key: KEYS.calendarEvents,
+    fallback: [],
+    validateItem: isValidCalendarEvent,
+    onError: onStorageError,
+  });
+  const semesterTemplates = useCollection<SemesterTemplate>({
+    key: KEYS.semesterTemplates,
+    fallback: [],
+    validateItem: isValidSemesterTemplate,
+    onError: onStorageError,
+  });
   const [settings, setSettings] = usePersistentState<Settings>({
     key: KEYS.settings,
     fallback: DEFAULT_SETTINGS,
@@ -194,6 +214,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       notes,
       planner,
       revisionPlans,
+      calendarEvents,
+      semesterTemplates,
       settings,
       updateSettings,
       newTask,
@@ -212,6 +234,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       notes,
       planner,
       revisionPlans,
+      calendarEvents,
+      semesterTemplates,
       settings,
       updateSettings,
       newTask,

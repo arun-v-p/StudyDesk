@@ -13,6 +13,7 @@ export function AppShell() {
   const [navOpen, setNavOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [storagePercent, setStoragePercent] = useState(0);
+  const [updateAvailable, setUpdateAvailable] = useState(false);
   const { pathname } = useLocation();
   const { toast, storageError, dismissStorageError } = useStore();
 
@@ -22,6 +23,17 @@ export function AppShell() {
   useEffect(() => {
     setNavOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    const announce = () => setUpdateAvailable(true);
+    window.addEventListener('studydesk:update-available', announce);
+    if ('serviceWorker' in navigator) {
+      void navigator.serviceWorker.getRegistration().then((registration) => {
+        if (registration?.waiting && navigator.serviceWorker.controller) announce();
+      });
+    }
+    return () => window.removeEventListener('studydesk:update-available', announce);
+  }, []);
 
   // ⌘K / Ctrl+K opens search.
   useEffect(() => {
@@ -88,6 +100,24 @@ export function AppShell() {
     });
   }, [toast]);
 
+  const onApplyUpdate = useCallback(async () => {
+    try {
+      const registration = await navigator.serviceWorker.getRegistration();
+      const waiting = registration?.waiting;
+      if (!waiting) {
+        setUpdateAvailable(false);
+        return;
+      }
+      navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload(), {
+        once: true,
+      });
+      waiting.postMessage({ type: 'SKIP_WAITING' });
+    } catch (error) {
+      console.error('[studydesk] could not activate app update', error);
+      toast({ message: 'Could not apply the app update. Reload when online to try again.', tone: 'danger' });
+    }
+  }, [toast]);
+
   return (
     <div className="bg-bg text-fg min-h-screen">
       <Sidebar
@@ -104,6 +134,25 @@ export function AppShell() {
           onOpenNav={() => setNavOpen(true)}
           onOpenSearch={() => setSearchOpen(true)}
         />
+
+        {updateAvailable && (
+          <div
+            role="status"
+            className="border-accent/40 bg-accent-soft flex flex-wrap items-center gap-3 border-b px-4 py-2.5 text-sm sm:px-7"
+          >
+            <span className="text-fg flex-1">A StudyDesk update is ready to install.</span>
+            <button type="button" className="btn btn--primary !min-h-8 !py-1 !text-xs" onClick={onApplyUpdate}>
+              Update app
+            </button>
+            <button
+              type="button"
+              className="btn btn--ghost !min-h-8 !py-1 !text-xs"
+              onClick={() => setUpdateAvailable(false)}
+            >
+              Later
+            </button>
+          </div>
+        )}
 
         {storageError && (
           <div

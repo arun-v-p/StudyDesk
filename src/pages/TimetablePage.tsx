@@ -18,6 +18,7 @@ import {
 } from '../features/timetable/layout';
 import type { TimetableEntry } from '../types';
 import type { ResolvedTheme } from '../hooks/useTheme';
+import { SemesterTemplatesPanel } from '../features/semester/SemesterTemplatesPanel';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -316,6 +317,8 @@ export function TimetablePage({ theme }: { theme: ResolvedTheme }) {
           </div>
         </div>
       )}
+
+      <SemesterTemplatesPanel />
 
       <Modal
         open={formOpen}

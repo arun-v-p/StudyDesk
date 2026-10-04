@@ -26,6 +26,30 @@ document.documentElement.dataset.theme =
  */
 migrateLegacyKeys();
 
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  const workerUrl = `${import.meta.env.BASE_URL}sw.js`;
+  void navigator.serviceWorker
+    .register(workerUrl, { scope: import.meta.env.BASE_URL, updateViaCache: 'none' })
+    .then((registration) => {
+      const announceUpdate = () => {
+        if (registration.waiting && navigator.serviceWorker.controller) {
+          window.dispatchEvent(new Event('studydesk:update-available'));
+        }
+      };
+      announceUpdate();
+      registration.addEventListener('updatefound', () => {
+        const installing = registration.installing;
+        installing?.addEventListener('statechange', announceUpdate);
+      });
+      void registration.update().catch((error: unknown) => {
+        console.warn('[studydesk] service worker update check failed', error);
+      });
+    })
+    .catch((error: unknown) => {
+      console.error('[studydesk] service worker registration failed', error);
+    });
+}
+
 function mount() {
   const container = document.getElementById('root');
   if (!container) {

@@ -22,6 +22,7 @@ import { dayKey, isResolvableDayKey } from '../lib/dates';
 import { deadlineStatus, STATUS_TONE } from '../lib/status';
 import { subjectHue } from '../features/timetable/layout';
 import { CATEGORIES, type Category, type PlannerEntry } from '../types';
+import { IcsTransfer } from '../features/ics/IcsTransfer';
 
 /** Monday-first grid, matching the timetable. Module scope so it is a stable
  *  useMemo dependency rather than a fresh value on every render. */
@@ -43,7 +44,7 @@ interface FormState {
 
 export function CalendarPage() {
   const now = useNow(60_000);
-  const { planner, deadlines, timetable, newPlannerEntry, toast } = useStore();
+  const { planner, deadlines, timetable, calendarEvents, newPlannerEntry, toast } = useStore();
   const [month, setMonth] = useState(() => new Date(now.getFullYear(), now.getMonth(), 1));
   const [selected, setSelected] = useState<Date>(
     () => new Date(now.getFullYear(), now.getMonth(), now.getDate()),
@@ -94,6 +95,11 @@ export function CalendarPage() {
     (d) => d.dueDate === selectedKey && isResolvableDayKey(d.dueDate),
   );
   const selectedClasses = timetable.items.filter((t) => t.day === selected.getDay());
+  const selectedCalendarEvents = calendarEvents.items.filter((event) =>
+    event.allDay
+      ? event.startDate <= selectedKey && event.endDate > selectedKey
+      : event.startDate <= selectedKey && event.endDate >= selectedKey,
+  );
 
   const openForm = (existing?: PlannerEntry) => {
     setErrors({});
@@ -150,14 +156,22 @@ export function CalendarPage() {
   const monthCounts = useMemo(() => {
     let dl = 0;
     let pl = 0;
+    let imported = 0;
     for (const d of deadlines.items) {
       if (isResolvableDayKey(d.dueDate) && d.dueDate.slice(0, 7) === format(month, 'yyyy-MM')) dl++;
     }
     for (const p of planner.items) {
       if (isResolvableDayKey(p.date) && p.date.slice(0, 7) === format(month, 'yyyy-MM')) pl++;
     }
-    return { dl, pl };
-  }, [deadlines.items, planner.items, month]);
+    for (const event of calendarEvents.items) {
+      if (
+        isResolvableDayKey(event.startDate) &&
+        event.startDate.slice(0, 7) === format(month, 'yyyy-MM')
+      )
+        imported++;
+    }
+    return { dl, pl, imported };
+  }, [deadlines.items, planner.items, calendarEvents.items, month]);
 
   const dowLabels = WEEK_STARTS_MONDAY
     ? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -171,6 +185,8 @@ export function CalendarPage() {
           <p className="text-subtle mt-0.5 text-sm">
             {format(month, 'MMMM yyyy')} · {monthCounts.dl} deadline
             {monthCounts.dl === 1 ? '' : 's'} · {monthCounts.pl} planned
+            {' · '}
+            {monthCounts.imported} imported
           </p>
         </div>
         <div className="ml-auto flex items-center gap-1.5">
@@ -192,6 +208,7 @@ export function CalendarPage() {
           <button type="button" className="btn btn--primary ml-1" onClick={() => openForm()}>
             <Plus className="h-4 w-4" aria-hidden="true" /> Plan entry
           </button>
+          <IcsTransfer />
         </div>
       </div>
 
@@ -215,6 +232,11 @@ export function CalendarPage() {
               const key = dayKey(day);
               const dayPlanner = plannerByDate.get(key) ?? [];
               const dayDeadlines = deadlines.items.filter((x) => x.dueDate === key);
+              const dayEvents = calendarEvents.items.filter((event) =>
+                event.allDay
+                  ? event.startDate <= key && event.endDate > key
+                  : event.startDate <= key && event.endDate >= key,
+              );
               const hasClass = timetable.items.some((t) => t.day === day.getDay());
               const isSelected = isSameDay(day, selected);
               const inMonth = isSameMonth(day, month);
@@ -226,9 +248,11 @@ export function CalendarPage() {
                   aria-selected={isSelected}
                   aria-current={isToday(day) ? 'date' : undefined}
                   aria-label={`${format(day, 'd MMMM yyyy')}${
-                    dayDeadlines.length + dayPlanner.length > 0
-                      ? `, ${dayDeadlines.length + dayPlanner.length} item${
-                          dayDeadlines.length + dayPlanner.length === 1 ? '' : 's'
+                    dayDeadlines.length + dayPlanner.length + dayEvents.length > 0
+                      ? `, ${dayDeadlines.length + dayPlanner.length + dayEvents.length} item${
+                          dayDeadlines.length + dayPlanner.length + dayEvents.length === 1
+                            ? ''
+                            : 's'
                         }`
                       : ''
                   }`}
@@ -257,6 +281,9 @@ export function CalendarPage() {
                     })}
                     {dayPlanner.slice(0, 2).map((p) => (
                       <span key={p.id} className="bg-success h-1 w-1 rounded-full" />
+                    ))}
+                    {dayEvents.slice(0, 2).map((event) => (
+                      <span key={event.id} className="bg-accent h-1 w-1 rounded-full" />
                     ))}
                     {!dayPlanner.length && !dayDeadlines.length && hasClass && (
                       <span className="bg-accent h-1 w-1 rounded-full" />
@@ -293,7 +320,8 @@ export function CalendarPage() {
 
             {selectedPlanner.length === 0 &&
             selectedDeadlines.length === 0 &&
-            selectedClasses.length === 0 ? (
+            selectedClasses.length === 0 &&
+            selectedCalendarEvents.length === 0 ? (
               <p className="text-subtle py-1 text-sm">Nothing on this date.</p>
             ) : (
               <div className="space-y-4">
@@ -387,11 +415,57 @@ export function CalendarPage() {
                     </ul>
                   </section>
                 )}
+
+                {selectedCalendarEvents.length > 0 && (
+                  <section aria-label="Imported calendar events">
+                    <h3 className="text-2xs text-accent mb-2 font-bold tracking-wider uppercase">
+                      Imported events
+                    </h3>
+                    <ul className="space-y-2">
+                      {selectedCalendarEvents.map((event) => (
+                        <li key={event.id} className="flex items-start gap-2.5">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-fg text-sm">{event.title}</p>
+                            <p className="text-subtle text-xs">
+                              {event.allDay
+                                ? 'All day'
+                                : `${event.startTime}${event.endTime ? `–${event.endTime}` : ''}`}
+                              {event.location ? ` · ${event.location}` : ''}
+                            </p>
+                            {event.description && (
+                              <p className="text-subtle mt-0.5 text-xs">{event.description}</p>
+                            )}
+                          </div>
+                          <IconButton
+                            aria-label={`Delete imported event ${event.title}`}
+                            tone="danger"
+                            size="sm"
+                            onClick={() => {
+                              const removed = calendarEvents.remove(event.id);
+                              if (!removed) return;
+                              toast({
+                                message: `Deleted “${event.title}”`,
+                                tone: 'danger',
+                                undoLabel: 'Undo',
+                                onUndo: () =>
+                                  calendarEvents.restore(removed.item, removed.index),
+                              });
+                            }}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                          </IconButton>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
               </div>
             )}
           </Card>
 
-          {planner.items.length === 0 && deadlines.items.length === 0 && (
+          {planner.items.length === 0 &&
+            deadlines.items.length === 0 &&
+            calendarEvents.items.length === 0 && (
             <Card>
               <EmptyState
                 compact
