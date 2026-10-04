@@ -447,8 +447,7 @@ export function CalendarPage() {
                                 message: `Deleted “${event.title}”`,
                                 tone: 'danger',
                                 undoLabel: 'Undo',
-                                onUndo: () =>
-                                  calendarEvents.restore(removed.item, removed.index),
+                                onUndo: () => calendarEvents.restore(removed.item, removed.index),
                               });
                             }}
                           >
@@ -466,15 +465,15 @@ export function CalendarPage() {
           {planner.items.length === 0 &&
             deadlines.items.length === 0 &&
             calendarEvents.items.length === 0 && (
-            <Card>
-              <EmptyState
-                compact
-                icon={<CalendarRange className="h-5 w-5" aria-hidden="true" />}
-                title="Nothing planned yet"
-                description="Pick a day and add an entry, or create a deadline — both appear here as colour-coded dots."
-              />
-            </Card>
-          )}
+              <Card>
+                <EmptyState
+                  compact
+                  icon={<CalendarRange className="h-5 w-5" aria-hidden="true" />}
+                  title="Nothing planned yet"
+                  description="Pick a day and add an entry, or create a deadline — both appear here as colour-coded dots."
+                />
+              </Card>
+            )}
         </div>
       </div>
 

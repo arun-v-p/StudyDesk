@@ -114,7 +114,10 @@ export function AppShell() {
       waiting.postMessage({ type: 'SKIP_WAITING' });
     } catch (error) {
       console.error('[studydesk] could not activate app update', error);
-      toast({ message: 'Could not apply the app update. Reload when online to try again.', tone: 'danger' });
+      toast({
+        message: 'Could not apply the app update. Reload when online to try again.',
+        tone: 'danger',
+      });
     }
   }, [toast]);
 
@@ -141,7 +144,11 @@ export function AppShell() {
             className="border-accent/40 bg-accent-soft flex flex-wrap items-center gap-3 border-b px-4 py-2.5 text-sm sm:px-7"
           >
             <span className="text-fg flex-1">A StudyDesk update is ready to install.</span>
-            <button type="button" className="btn btn--primary !min-h-8 !py-1 !text-xs" onClick={onApplyUpdate}>
+            <button
+              type="button"
+              className="btn btn--primary !min-h-8 !py-1 !text-xs"
+              onClick={onApplyUpdate}
+            >
               Update app
             </button>
             <button
