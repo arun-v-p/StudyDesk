@@ -95,6 +95,18 @@ export interface StudyMaterialFile {
   updatedAt: string;
 }
 
+export interface StudyResource {
+  id: string;
+  title: string;
+  url: string;
+  description: string;
+  subject: string;
+  category: string;
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Note {
   id: string;
   title: string;

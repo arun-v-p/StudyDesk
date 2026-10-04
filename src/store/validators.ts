@@ -106,6 +106,34 @@ export function isValidMaterialFile(v: unknown): boolean {
   );
 }
 
+export function isValidStudyResource(v: unknown): boolean {
+  if (
+    !isRecord(v) ||
+    !isStr(v.id) ||
+    !isStr(v.title) ||
+    !isStr(v.url) ||
+    !isStr(v.description) ||
+    !isStr(v.subject) ||
+    !isStr(v.category) ||
+    !Array.isArray(v.tags) ||
+    !v.tags.every(isStr) ||
+    !isStr(v.createdAt) ||
+    !isStr(v.updatedAt)
+  )
+    return false;
+  try {
+    const url = new URL(v.url);
+    return (
+      (url.protocol === 'http:' || url.protocol === 'https:') &&
+      Boolean(url.hostname) &&
+      !url.username &&
+      !url.password
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function isValidPlannerEntry(v: unknown): boolean {
   return (
     isRecord(v) &&
