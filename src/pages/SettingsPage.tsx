@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Download, Sparkles, Trash2, Upload } from 'lucide-react';
 import { useStore } from '../store/AppStore';
 import { Card, CardHeader } from '../components/ui/Card';
@@ -16,6 +16,7 @@ import { purgeLegacyKeys } from '../store/legacyMigration';
 import { storage } from '../lib/safeStorage';
 import { useExamTimetable } from '../store/examTimetable';
 import { useMaterials } from '../store/materials';
+import { selectDataCounts } from '../store/selectors';
 
 const IMPORT_TOAST_DURATION = 8000;
 
@@ -36,14 +37,37 @@ export function SettingsPage() {
 
   useEffect(() => setName(settings.displayName), [settings.displayName]);
 
-  const counts = [
-    ['Tasks', tasks.items.length],
-    ['Deadlines', deadlines.items.length],
-    ['Classes', timetable.items.length],
-    ['Notes', notes.items.length],
-    ['Planner entries', planner.items.length],
-    ['Exams', exams.items.length],
-    ['Material files', materials.metadata.files.length],
+  const counts = useMemo(
+    () =>
+      selectDataCounts({
+        tasks: tasks.items,
+        deadlines: deadlines.items,
+        timetable: timetable.items,
+        notes: notes.items,
+        planner: planner.items,
+        exams: exams.items,
+        materialFiles: materials.metadata.files,
+      }),
+    [
+      tasks.items,
+      deadlines.items,
+      timetable.items,
+      notes.items,
+      planner.items,
+      exams.items,
+      materials.metadata.files,
+    ],
+  );
+  const countItems = [
+    ['Active Tasks', counts.activeTasks],
+    ['Completed Tasks', counts.completedTasks],
+    ['Active Deadlines', counts.activeDeadlines],
+    ['Completed Deadlines', counts.completedDeadlines],
+    ['Classes', counts.classes],
+    ['Notes', counts.notes],
+    ['Planner Entries', counts.plannerEntries],
+    ['Exams', counts.exams],
+    ['Material Files', counts.materialFiles],
   ] as const;
 
   const onExport = () => {
@@ -140,7 +164,7 @@ export function SettingsPage() {
       <Card>
         <CardHeader title="Your data" />
         <dl className="mb-4 grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3">
-          {counts.map(([label, count]) => (
+          {countItems.map(([label, count]) => (
             <div key={label}>
               <dt className="text-2xs text-subtle font-semibold tracking-wider uppercase">
                 {label}
@@ -149,6 +173,11 @@ export function SettingsPage() {
             </div>
           ))}
         </dl>
+        {Object.values(counts).every((count) => count === 0) && (
+          <p className="text-subtle mb-4 text-sm" role="status">
+            No local study records yet. Create records or import a backup to see them counted here.
+          </p>
+        )}
 
         <div className="flex flex-wrap gap-2">
           <button type="button" className="btn btn--primary" onClick={onExport}>

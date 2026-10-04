@@ -54,6 +54,9 @@ export function isValidTimetableEntry(v: unknown): boolean {
 
 export function isValidExamTimetableEntry(v: unknown): boolean {
   if (!isRecord(v) || !isStr(v.id) || !isStr(v.subject)) return false;
+  if (v.courseCode !== undefined && !isStr(v.courseCode)) return false;
+  if (v.semester !== undefined && !isStr(v.semester)) return false;
+  if (v.completed !== undefined && typeof v.completed !== 'boolean') return false;
   if (!isResolvableDayKey(v.date)) return false;
   if (!isStr(v.startTime) || toMinutes(v.startTime) == null) return false;
   if (!isStr(v.endTime) || toMinutes(v.endTime) == null) return false;

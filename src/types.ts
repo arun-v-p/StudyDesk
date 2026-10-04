@@ -53,6 +53,8 @@ export interface TimetableEntry {
 export interface ExamTimetableEntry {
   id: string;
   subject: string;
+  courseCode?: string;
+  semester?: string;
   date: string;
   startTime: string;
   endTime: string;
@@ -60,6 +62,7 @@ export interface ExamTimetableEntry {
   note: string;
   validFrom: string;
   validUntil: string;
+  completed?: boolean;
 }
 
 export interface StudyMaterialSubject {

@@ -20,6 +20,7 @@ import { Modal, ConfirmDialog } from '../components/ui/Modal';
 import { Select, TextArea, TextField } from '../components/ui/Field';
 import { dayKey, isResolvableDayKey } from '../lib/dates';
 import { deadlineStatus, STATUS_TONE } from '../lib/status';
+import { selectActiveDeadlines } from '../store/selectors';
 import { subjectHue } from '../features/timetable/layout';
 import { CATEGORIES, type Category, type PlannerEntry } from '../types';
 import { IcsTransfer } from '../features/ics/IcsTransfer';
@@ -89,10 +90,22 @@ export function CalendarPage() {
     return map;
   }, [planner.items]);
 
+  const activeDeadlines = useMemo(() => selectActiveDeadlines(deadlines.items), [deadlines.items]);
+  const deadlinesByDate = useMemo(() => {
+    const map = new Map<string, (typeof activeDeadlines)[number][]>();
+    for (const deadline of activeDeadlines) {
+      const items = map.get(deadline.dueDate);
+      if (items) items.push(deadline);
+      else map.set(deadline.dueDate, [deadline]);
+    }
+    return map;
+  }, [activeDeadlines]);
+
   const selectedKey = dayKey(selected);
   const selectedPlanner = plannerByDate.get(selectedKey) ?? [];
-  const selectedDeadlines = deadlines.items.filter(
-    (d) => d.dueDate === selectedKey && isResolvableDayKey(d.dueDate),
+  const selectedDeadlines = deadlinesByDate.get(selectedKey) ?? [];
+  const selectedCompletedDeadlines = deadlines.items.filter(
+    (d) => d.completed && d.dueDate === selectedKey && isResolvableDayKey(d.dueDate),
   );
   const selectedClasses = timetable.items.filter((t) => t.day === selected.getDay());
   const selectedCalendarEvents = calendarEvents.items.filter((event) =>
@@ -157,7 +170,7 @@ export function CalendarPage() {
     let dl = 0;
     let pl = 0;
     let imported = 0;
-    for (const d of deadlines.items) {
+    for (const d of activeDeadlines) {
       if (isResolvableDayKey(d.dueDate) && d.dueDate.slice(0, 7) === format(month, 'yyyy-MM')) dl++;
     }
     for (const p of planner.items) {
@@ -171,7 +184,7 @@ export function CalendarPage() {
         imported++;
     }
     return { dl, pl, imported };
-  }, [deadlines.items, planner.items, calendarEvents.items, month]);
+  }, [activeDeadlines, planner.items, calendarEvents.items, month]);
 
   const dowLabels = WEEK_STARTS_MONDAY
     ? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -231,7 +244,7 @@ export function CalendarPage() {
             {days.map((day) => {
               const key = dayKey(day);
               const dayPlanner = plannerByDate.get(key) ?? [];
-              const dayDeadlines = deadlines.items.filter((x) => x.dueDate === key);
+              const dayDeadlines = deadlinesByDate.get(key) ?? [];
               const dayEvents = calendarEvents.items.filter((event) =>
                 event.allDay
                   ? event.startDate <= key && event.endDate > key
@@ -320,6 +333,7 @@ export function CalendarPage() {
 
             {selectedPlanner.length === 0 &&
             selectedDeadlines.length === 0 &&
+            selectedCompletedDeadlines.length === 0 &&
             selectedClasses.length === 0 &&
             selectedCalendarEvents.length === 0 ? (
               <p className="text-subtle py-1 text-sm">Nothing on this date.</p>
@@ -387,6 +401,29 @@ export function CalendarPage() {
                           </li>
                         );
                       })}
+                    </ul>
+                  </section>
+                )}
+
+                {selectedCompletedDeadlines.length > 0 && (
+                  <section aria-label="Completed deadlines">
+                    <h3 className="text-2xs text-success mb-2 font-bold tracking-wider uppercase">
+                      Completed deadlines
+                    </h3>
+                    <ul className="space-y-2">
+                      {selectedCompletedDeadlines.map((d) => (
+                        <li key={d.id} className="flex items-center gap-2.5">
+                          <Chip tone="success">Completed</Chip>
+                          <span className="text-subtle min-w-0 flex-1 truncate text-sm line-through">
+                            {d.title}
+                          </span>
+                          {d.dueTime && (
+                            <span className="text-2xs text-subtle shrink-0 font-mono">
+                              {d.dueTime}
+                            </span>
+                          )}
+                        </li>
+                      ))}
                     </ul>
                   </section>
                 )}

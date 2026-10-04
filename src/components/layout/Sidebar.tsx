@@ -3,6 +3,9 @@ import { BookOpen, Download, Upload } from 'lucide-react';
 import { NAV_ITEMS, SETTINGS_ITEM } from './nav';
 import { IconButton } from '../ui/IconButton';
 import { useStore } from '../../store/AppStore';
+import { deadlineStatus } from '../../lib/status';
+import { selectActiveDeadlines } from '../../store/selectors';
+import { useNow } from '../../hooks/useNow';
 
 /**
  * Desktop rail + mobile drawer.
@@ -25,9 +28,10 @@ export function Sidebar({
   storagePercent: number;
 }) {
   const { deadlines, notes } = useStore();
+  const now = useNow(60_000);
 
-  const overdue = deadlines.items.filter(
-    (d) => !d.completed && new Date(`${d.dueDate}T${d.dueTime || '23:59'}`) < new Date(),
+  const overdue = selectActiveDeadlines(deadlines.items).filter(
+    (deadline) => deadlineStatus(deadline, now) === 'overdue',
   ).length;
 
   const counts: Record<string, number | undefined> = {
