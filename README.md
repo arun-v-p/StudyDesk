@@ -25,21 +25,21 @@ machine. What it trades away is sync between devices — [export and import](#da
 
 ## Features
 
-|                        |                                                                                                                                                           |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Today**              | One screen: open tasks, approaching deadlines, today's classes on a timeline, pinned notes, and a completion ring                                         |
-| **Deadlines**          | Grouped Overdue / Today / Tomorrow / Upcoming, counted down to the minute, with priority and relative time                                                |
-| **Timetable**          | Weekly grid on a real time axis — half-hour starts, multi-hour spans and overlapping classes all render, colour-coded per subject, with a live "now" line |
-| **Calendar**           | Month grid with adjacent-month days, priority-accurate dots, and a planner layer for personal / academic / work / health entries                          |
-| **Focus timer**        | Drift-free Pomodoro, persisted daily session count, long-break cycle, tab-title countdown, `Space` to start/pause, completion chime                       |
-| **Notes**              | Pinnable, tag-filterable, full-text search, relative timestamps                                                                                           |
-| **Revision plans**     | Local exam plans with linked subjects/materials, deterministic review sessions, completion tracking, and manual rescheduling                              |
-| **iCalendar**          | Selective `.ics` export and preview-first import for calendar events and weekly classes                                                                   |
-| **Shareable resources** | Preview-first, local JSON export/import for study links; tags are opt-in and duplicates are never overwritten                                            |
-| **Semester templates** | Reusable named weekly-timetable snapshots with preview and selective application                                                                          |
-| **Installable PWA**    | Standalone install, offline app shell, and explicit user-controlled app updates                                                                           |
-| **Search**             | `⌘K` palette across every entity and page                                                                                                                 |
-| **Local-first**        | Validated, versioned storage with cross-tab sync, JSON export/import, and a storage meter                                                                 |
+|                         |                                                                                                                                                           |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Today**               | One screen: open tasks, approaching deadlines, today's classes on a timeline, pinned notes, and a completion ring                                         |
+| **Deadlines**           | Grouped Overdue / Today / Tomorrow / Upcoming, counted down to the minute, with priority and relative time                                                |
+| **Timetable**           | Weekly grid on a real time axis — half-hour starts, multi-hour spans and overlapping classes all render, colour-coded per subject, with a live "now" line |
+| **Calendar**            | Month grid with adjacent-month days, priority-accurate dots, and a planner layer for personal / academic / work / health entries                          |
+| **Focus timer**         | Drift-free Pomodoro, persisted daily session count, long-break cycle, tab-title countdown, `Space` to start/pause, completion chime                       |
+| **Notes**               | Pinnable, tag-filterable, full-text search, relative timestamps                                                                                           |
+| **Revision plans**      | Local exam plans with linked subjects/materials, deterministic review sessions, completion tracking, and manual rescheduling                              |
+| **iCalendar**           | Selective `.ics` export and preview-first import for calendar events and weekly classes                                                                   |
+| **Shareable resources** | Preview-first, local JSON export/import for study links; tags are opt-in and duplicates are never overwritten                                             |
+| **Semester templates**  | Reusable named weekly-timetable snapshots with preview and selective application                                                                          |
+| **Installable PWA**     | Standalone install, offline app shell, and explicit user-controlled app updates                                                                           |
+| **Search**              | `⌘K` palette across every entity and page                                                                                                                 |
+| **Local-first**         | Validated, versioned storage with cross-tab sync, JSON export/import, and a storage meter                                                                 |
 
 ### Revision scheduling rules
 
