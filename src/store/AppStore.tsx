@@ -19,6 +19,7 @@ import {
   isValidDeadline,
   isValidNote,
   isValidPlannerEntry,
+  isValidRevisionPlan,
   isValidTask,
   isValidTimetableEntry,
 } from './validators';
@@ -28,6 +29,7 @@ import {
   type Deadline,
   type Note,
   type PlannerEntry,
+  type RevisionPlan,
   type Settings,
   type Task,
   type TimetableEntry,
@@ -41,6 +43,7 @@ export const KEYS = {
   timetable: 'studydesk.timetable',
   notes: 'studydesk.notes',
   planner: 'studydesk.planner',
+  revisionPlans: 'studydesk.revisionPlans',
   settings: 'studydesk.settings',
 } as const;
 
@@ -60,6 +63,7 @@ interface StoreValue {
   timetable: Collection<TimetableEntry>;
   notes: Collection<Note>;
   planner: Collection<PlannerEntry>;
+  revisionPlans: Collection<RevisionPlan>;
   settings: Settings;
   updateSettings: (patch: Partial<Settings>) => void;
   /** Factory helpers so pages never hand-build an id or timestamp. */
@@ -124,6 +128,12 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     validateItem: isValidPlannerEntry,
     onError: onStorageError,
   });
+  const revisionPlans = useCollection<RevisionPlan>({
+    key: KEYS.revisionPlans,
+    fallback: [],
+    validateItem: isValidRevisionPlan,
+    onError: onStorageError,
+  });
   const [settings, setSettings] = usePersistentState<Settings>({
     key: KEYS.settings,
     fallback: DEFAULT_SETTINGS,
@@ -183,6 +193,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       timetable,
       notes,
       planner,
+      revisionPlans,
       settings,
       updateSettings,
       newTask,
@@ -200,6 +211,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       timetable,
       notes,
       planner,
+      revisionPlans,
       settings,
       updateSettings,
       newTask,

@@ -111,6 +111,35 @@ export interface PlannerEntry {
   category: Category;
 }
 
+export type RevisionPlanStatus = 'active' | 'completed' | 'archived';
+
+export interface RevisionSession {
+  id: string;
+  subjectId: string;
+  materialIds: string[];
+  scheduledDate: string;
+  scheduledTime: string;
+  durationMinutes: number;
+  completed: boolean;
+  completedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RevisionPlan {
+  id: string;
+  title: string;
+  /** Local datetime in `yyyy-MM-dd'T'HH:mm` form; it is not a UTC instant. */
+  examAt: string;
+  subjectIds: string[];
+  materialIds: string[];
+  targetSessionMinutes: number;
+  sessions: RevisionSession[];
+  status: RevisionPlanStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Settings {
   displayName: string;
   theme: 'dark' | 'light' | 'system';

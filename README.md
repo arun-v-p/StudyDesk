@@ -25,16 +25,39 @@ machine. What it trades away is sync between devices — [export and import](#da
 
 ## Features
 
-|                 |                                                                                                                                                           |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Today**       | One screen: open tasks, approaching deadlines, today's classes on a timeline, pinned notes, and a completion ring                                         |
-| **Deadlines**   | Grouped Overdue / Today / Tomorrow / Upcoming, counted down to the minute, with priority and relative time                                                |
-| **Timetable**   | Weekly grid on a real time axis — half-hour starts, multi-hour spans and overlapping classes all render, colour-coded per subject, with a live "now" line |
-| **Calendar**    | Month grid with adjacent-month days, priority-accurate dots, and a planner layer for personal / academic / work / health entries                          |
-| **Focus timer** | Drift-free Pomodoro, persisted daily session count, long-break cycle, tab-title countdown, `Space` to start/pause, completion chime                       |
-| **Notes**       | Pinnable, tag-filterable, full-text search, relative timestamps                                                                                           |
-| **Search**      | `⌘K` palette across every entity and page                                                                                                                 |
-| **Local-first** | Validated, versioned storage with cross-tab sync, JSON export/import, and a storage meter                                                                 |
+|                    |                                                                                                                                                           |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Today**          | One screen: open tasks, approaching deadlines, today's classes on a timeline, pinned notes, and a completion ring                                         |
+| **Deadlines**      | Grouped Overdue / Today / Tomorrow / Upcoming, counted down to the minute, with priority and relative time                                                |
+| **Timetable**      | Weekly grid on a real time axis — half-hour starts, multi-hour spans and overlapping classes all render, colour-coded per subject, with a live "now" line |
+| **Calendar**       | Month grid with adjacent-month days, priority-accurate dots, and a planner layer for personal / academic / work / health entries                          |
+| **Focus timer**    | Drift-free Pomodoro, persisted daily session count, long-break cycle, tab-title countdown, `Space` to start/pause, completion chime                       |
+| **Notes**          | Pinnable, tag-filterable, full-text search, relative timestamps                                                                                           |
+| **Revision plans** | Local exam plans with linked subjects/materials, deterministic review sessions, completion tracking, and manual rescheduling                              |
+| **Search**         | `⌘K` palette across every entity and page                                                                                                                 |
+| **Local-first**    | Validated, versioned storage with cross-tab sync, JSON export/import, and a storage meter                                                                 |
+
+### Revision scheduling rules
+
+Revision plans use local calendar dates and a timezone-free local exam datetime (`yyyy-MM-dd'T'HH:mm`);
+they never convert the exam date through UTC. Generation creates one session per selected subject,
+spaces those sessions evenly across eligible calendar days, and uses at most one generated session
+per day. The eligible range starts today and ends the day before the exam; weekends are included and
+no timetable/availability conflicts are inferred. Sessions normally start at 09:00. If generated
+today, the start moves to the next half-hour slot and today is eligible only when the full target
+duration fits before 22:00.
+
+An exam today or in the past has no eligible study days. If there are fewer eligible days than
+selected subjects, generation stops and reports the available-day count rather than stacking
+sessions or silently omitting a subject. Editing plan inputs regenerates its schedule while
+preserving completion history for subjects that remain selected. After generation, each session can
+be completed, edited, rescheduled, or removed; rescheduling is limited to today through the day
+before the exam. A session moved to today cannot use an elapsed start time, and edited sessions must
+finish by 22:00. Plans with unfinished sessions after the exam are marked overdue in the plan view.
+
+Plans, subject/material references, and session records are stored locally and included in backup
+export/import. Sessions are independent records within a plan, leaving room for future optional
+review methods or card references; flashcards and spaced-repetition behavior are not implemented.
 
 ## Screenshots
 

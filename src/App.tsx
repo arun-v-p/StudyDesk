@@ -32,6 +32,9 @@ const MaterialsPage = lazy(() =>
 const ExamTimetablePage = lazy(() =>
   import('./pages/ExamTimetablePage').then((m) => ({ default: m.ExamTimetablePage })),
 );
+const RevisionPage = lazy(() =>
+  import('./pages/RevisionPage').then((m) => ({ default: m.RevisionPage })),
+);
 const NotFoundPage = lazy(() =>
   import('./pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })),
 );
@@ -144,6 +147,14 @@ function ThemedApp() {
               element={
                 <ErrorBoundary label="Exams">
                   <ExamTimetablePage />
+                </ErrorBoundary>
+              }
+            />
+            <Route
+              path="revision"
+              element={
+                <ErrorBoundary label="Revision plans">
+                  <RevisionPage />
                 </ErrorBoundary>
               }
             />
