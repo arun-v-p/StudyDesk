@@ -113,6 +113,55 @@ export function isValidPlannerEntry(v: unknown): boolean {
   );
 }
 
+export function isValidCalendarEvent(v: unknown): boolean {
+  if (
+    !isRecord(v) ||
+    !isStr(v.id) ||
+    !isStr(v.title) ||
+    !isStr(v.description) ||
+    !isStr(v.location) ||
+    !isResolvableDayKey(v.startDate) ||
+    !isResolvableDayKey(v.endDate) ||
+    typeof v.allDay !== 'boolean' ||
+    !isStr(v.createdAt) ||
+    !isStr(v.updatedAt)
+  )
+    return false;
+  if (v.endDate < v.startDate || (v.uid !== undefined && !isStr(v.uid))) return false;
+  if (v.allDay) return v.startTime === undefined && v.endTime === undefined;
+  return (
+    isStr(v.startTime) &&
+    toMinutes(v.startTime) != null &&
+    (v.endTime === undefined || (isStr(v.endTime) && toMinutes(v.endTime) != null))
+  );
+}
+
+export function isValidSemesterTemplate(v: unknown): boolean {
+  return (
+    isRecord(v) &&
+    isStr(v.id) &&
+    isStr(v.name) &&
+    v.name.trim().length > 0 &&
+    Array.isArray(v.timetable) &&
+    v.timetable.every(
+      (entry) =>
+        isRecord(entry) &&
+        typeof entry.day === 'number' &&
+        entry.day >= 0 &&
+        entry.day <= 6 &&
+        isStr(entry.startTime) &&
+        toMinutes(entry.startTime) != null &&
+        isStr(entry.endTime) &&
+        toMinutes(entry.endTime) != null &&
+        isStr(entry.subject) &&
+        isStr(entry.room) &&
+        isStr(entry.note),
+    ) &&
+    isStr(v.createdAt) &&
+    isStr(v.updatedAt)
+  );
+}
+
 export function isValidRevisionPlan(v: unknown): boolean {
   if (
     !isRecord(v) ||

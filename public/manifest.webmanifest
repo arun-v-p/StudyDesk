@@ -1,10 +1,12 @@
 {
+  "id": "./",
   "name": "StudyDesk \u2014 Personal Study Planner",
   "short_name": "StudyDesk",
-  "description": "A local-first study planner: tasks, deadlines, timetable, calendar, notes and a Pomodoro timer.",
+  "description": "A local-first study planner with tasks, deadlines, timetable, calendar, revision plans and notes.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "orientation": "any",
   "background_color": "#14141a",
   "theme_color": "#14141a",
@@ -26,7 +28,7 @@
       "src": "./apple-touch-icon.png",
       "sizes": "180x180",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ]
 }

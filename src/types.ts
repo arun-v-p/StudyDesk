@@ -111,6 +111,32 @@ export interface PlannerEntry {
   category: Category;
 }
 
+export interface CalendarEvent {
+  id: string;
+  /** Optional source UID, retained to identify repeat imports without replacing data. */
+  uid?: string;
+  title: string;
+  description: string;
+  location: string;
+  startDate: string;
+  /** All-day end dates follow iCalendar's exclusive DTEND convention. */
+  endDate: string;
+  allDay: boolean;
+  /** Local HH:mm values. Omitted for all-day events. */
+  startTime?: string;
+  endTime?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SemesterTemplate {
+  id: string;
+  name: string;
+  timetable: Omit<TimetableEntry, 'id'>[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type RevisionPlanStatus = 'active' | 'completed' | 'archived';
 
 export interface RevisionSession {

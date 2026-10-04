@@ -1,4 +1,8 @@
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { defineConfig } from 'vite';
+import type { Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
@@ -32,12 +36,120 @@ function resolveSiteUrl(): string {
   return `https://${owner}.github.io/${name}/`;
 }
 
+function appShellServiceWorker(): Plugin {
+  let transformedIndex = '';
+  let publicDir = '';
+  return {
+    name: 'studydesk-app-shell-service-worker',
+    apply: 'build',
+    configResolved(config) {
+      publicDir = config.publicDir;
+    },
+    transformIndexHtml(html) {
+      transformedIndex = html;
+      return html;
+    },
+    generateBundle(_options, bundle) {
+      const files = Object.entries(bundle)
+        .filter(([name]) => {
+          if (name === 'index.html') return true;
+          if (!/\.(?:js|css|svg|png|webmanifest)$/.test(name)) return false;
+          const output = bundle[name];
+          return output?.type === 'asset' || output?.type === 'chunk';
+        })
+        .sort(([left], [right]) => left.localeCompare(right));
+      const hash = createHash('sha256');
+      for (const [name, output] of files) {
+        hash.update(name);
+        hash.update('\0');
+        if (output?.type === 'asset') hash.update(output.source);
+        else if (output?.type === 'chunk') hash.update(output.code);
+        hash.update('\0');
+      }
+      hash.update(transformedIndex);
+      const publicFiles = [
+        'manifest.webmanifest',
+        'favicon.svg',
+        'icon-512.png',
+        'apple-touch-icon.png',
+      ];
+      for (const file of publicFiles) {
+        hash.update(file);
+        hash.update(readFileSync(resolve(publicDir, file)));
+      }
+      const urls = [...files.map(([name]) => name), ...publicFiles];
+      hash.update(serviceWorkerSource('__BUILD_ID__', urls));
+      const buildId = hash.digest('hex').slice(0, 16);
+      this.emitFile({
+        type: 'asset',
+        fileName: 'sw.js',
+        source: serviceWorkerSource(buildId, urls),
+      });
+    },
+  };
+}
+
+function serviceWorkerSource(buildId: string, files: string[]): string {
+  return `const CACHE_PREFIX = 'studydesk-shell-';
+const CACHE_NAME = CACHE_PREFIX + '${buildId}';
+const SCOPE_URL = self.registration.scope;
+  const APP_SHELL_URL = new URL('./', SCOPE_URL).href;
+  const PRECACHE_URLS = [APP_SHELL_URL, ...${JSON.stringify(files)}.map((file) => new URL(file, SCOPE_URL).href)];
+  const STATIC_PATHS = new Set(PRECACHE_URLS.map((url) => new URL(url).pathname));
+  const SHELL_URL = APP_SHELL_URL;
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_URLS)));
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys
+      .filter((key) => key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME)
+      .map((key) => caches.delete(key)));
+    await self.clients.claim();
+  })());
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
+});
+
+self.addEventListener('fetch', (event) => {
+  const request = event.request;
+  if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) return;
+  if (request.mode === 'navigate') {
+    event.respondWith((async () => {
+      const cache = await caches.open(CACHE_NAME);
+      const shell = await cache.match(SHELL_URL);
+      if (shell) return shell;
+      try {
+        return await fetch(request);
+      } catch {
+        return new Response(
+          '<!doctype html><meta charset="utf-8"><title>StudyDesk offline</title><main><h1>StudyDesk is offline</h1><p>The app shell is not available on this device yet. Reconnect and reload once to make it available offline.</p></main>',
+          { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+        );
+      }
+    })());
+    return;
+  }
+  if (!STATIC_PATHS.has(new URL(request.url).pathname)) return;
+  event.respondWith(caches.open(CACHE_NAME).then(async (cache) => {
+    const cached = await cache.match(request, { ignoreSearch: true, ignoreVary: true });
+    return cached || fetch(request);
+  }));
+});
+`;
+}
+
 // Must be assigned before Vite reads index.html, so the tokens resolve.
 process.env.VITE_SITE_URL = resolveSiteUrl();
 
 export default defineConfig({
   base: resolveBase(),
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), appShellServiceWorker()],
   server: { host: '0.0.0.0', port: 3000, strictPort: true },
   build: {
     chunkSizeWarningLimit: 250,

@@ -25,17 +25,20 @@ machine. What it trades away is sync between devices — [export and import](#da
 
 ## Features
 
-|                    |                                                                                                                                                           |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Today**          | One screen: open tasks, approaching deadlines, today's classes on a timeline, pinned notes, and a completion ring                                         |
-| **Deadlines**      | Grouped Overdue / Today / Tomorrow / Upcoming, counted down to the minute, with priority and relative time                                                |
-| **Timetable**      | Weekly grid on a real time axis — half-hour starts, multi-hour spans and overlapping classes all render, colour-coded per subject, with a live "now" line |
-| **Calendar**       | Month grid with adjacent-month days, priority-accurate dots, and a planner layer for personal / academic / work / health entries                          |
-| **Focus timer**    | Drift-free Pomodoro, persisted daily session count, long-break cycle, tab-title countdown, `Space` to start/pause, completion chime                       |
-| **Notes**          | Pinnable, tag-filterable, full-text search, relative timestamps                                                                                           |
-| **Revision plans** | Local exam plans with linked subjects/materials, deterministic review sessions, completion tracking, and manual rescheduling                              |
-| **Search**         | `⌘K` palette across every entity and page                                                                                                                 |
-| **Local-first**    | Validated, versioned storage with cross-tab sync, JSON export/import, and a storage meter                                                                 |
+|                        |                                                                                                                                                           |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Today**              | One screen: open tasks, approaching deadlines, today's classes on a timeline, pinned notes, and a completion ring                                         |
+| **Deadlines**          | Grouped Overdue / Today / Tomorrow / Upcoming, counted down to the minute, with priority and relative time                                                |
+| **Timetable**          | Weekly grid on a real time axis — half-hour starts, multi-hour spans and overlapping classes all render, colour-coded per subject, with a live "now" line |
+| **Calendar**           | Month grid with adjacent-month days, priority-accurate dots, and a planner layer for personal / academic / work / health entries                          |
+| **Focus timer**        | Drift-free Pomodoro, persisted daily session count, long-break cycle, tab-title countdown, `Space` to start/pause, completion chime                       |
+| **Notes**              | Pinnable, tag-filterable, full-text search, relative timestamps                                                                                           |
+| **Revision plans**     | Local exam plans with linked subjects/materials, deterministic review sessions, completion tracking, and manual rescheduling                              |
+| **iCalendar**          | Selective `.ics` export and preview-first import for calendar events and weekly classes                                                                   |
+| **Semester templates** | Reusable named weekly-timetable snapshots with preview and selective application                                                                          |
+| **Installable PWA**    | Standalone install, offline app shell, and explicit user-controlled app updates                                                                           |
+| **Search**             | `⌘K` palette across every entity and page                                                                                                                 |
+| **Local-first**        | Validated, versioned storage with cross-tab sync, JSON export/import, and a storage meter                                                                 |
 
 ### Revision scheduling rules
 
@@ -58,6 +61,54 @@ finish by 22:00. Plans with unfinished sessions after the exam are marked overdu
 Plans, subject/material references, and session records are stored locally and included in backup
 export/import. Sessions are independent records within a plan, leaving room for future optional
 review methods or card references; flashcards and spaced-repetition behavior are not implemented.
+
+### iCalendar portability boundaries
+
+The Calendar page imports and exports `.ics` files without a server. Export selection includes
+weekly timetable classes, exam timetable entries, deadlines, planner entries, and imported events.
+Calendar items can be selected individually before download. Imports show a preview and diagnostics
+before any local data is changed.
+
+- **Recurring events:** weekly rules with an interval of one and optional `BYDAY` are imported as
+  recurring weekly timetable classes. Timed weekly rules only are supported. Daily/monthly/yearly,
+  bounded (`COUNT`/`UNTIL`), exception (`EXDATE`/`RDATE`), and more complex recurrence rules are
+  skipped with a reason. Weekly classes export as unbounded weekly rules.
+- **All-day events:** imported `DTEND` follows iCalendar's exclusive end-date convention; if absent,
+  a one-day duration is assumed. All-day values remain local calendar dates.
+- **Timezones:** floating date-times stay at the same local wall time. UTC offsets and IANA `TZID`
+  values are converted to the browser's local timezone. Custom `VTIMEZONE` definitions are not
+  interpreted; unknown/unresolvable zones are skipped and reported.
+- **Duplicates:** likely duplicates (source UID, or matching title/date/time) are excluded by
+  default in the import preview. A user may explicitly opt to add them as separate new records.
+  Imports never update or delete existing records.
+- **Unsupported fields:** common metadata is ignored; unrecognized event properties are listed in
+  preview notes. Malformed or unsupported events are skipped and shown with event-specific reasons.
+
+This is the tested StudyDesk subset of iCalendar, not a claim of complete RFC 5545 interoperability.
+
+### Semester templates
+
+Templates are named snapshots of the weekly timetable only (not deadlines, calendar events, exams,
+or revision plans). Names are trimmed, limited to 60 characters, and unique without regard to case.
+Before applying, preview the classes and select which to use. Starting a new semester replaces the
+current timetable only after a second confirmation; append mode skips exact duplicates. Applied
+classes receive new IDs, so editing the new timetable never changes its source template. Templates
+can be renamed or deliberately refreshed from the current timetable and are included in local backup.
+
+### Installable offline app
+
+The production HTTPS deployment (and localhost preview) exposes the web manifest and registers a
+service worker. The build emits a service-worker cache version from the worker implementation and
+public shell asset contents.
+Installation pre-caches only the app document, hashed JS/CSS, manifest, and public icons—not
+localStorage, IndexedDB, backups, attachments, or other user data.
+
+Navigation and hashed public assets use the current build's cache first; the cache lookup ignores
+query strings and response `Vary` headers only for known static files. A new build is downloaded
+and staged in a waiting worker. StudyDesk checks for an update at app startup; the user must choose
+**Update app** before the new worker takes control and the page reloads. Activation removes the
+previous StudyDesk shell cache. Offline support requires the app shell to have been opened online
+once; if it was not cached, the browser receives an explanatory offline page rather than a blank app.
 
 ## Screenshots
 
@@ -85,7 +136,7 @@ Requires Node.js 20.19+ or 22.12+.
 | `npm run typecheck` | `tsc --noEmit`                        |
 | `npm run lint`      | ESLint (`jsx-a11y`, `react-hooks`)    |
 | `npm run format`    | Prettier, with Tailwind class sorting |
-| `npm test`          | 80 unit + integration tests           |
+| `npm test`          | Unit + integration tests              |
 | `npm run ci`        | Everything CI runs, in order          |
 
 ## Architecture
@@ -109,6 +160,8 @@ src/
 │  └─ seed.ts                   # opt-in sample term
 ├─ features/
 │  ├─ timetable/layout.ts       # pure time-axis layout engine
+│  ├─ ics/                      # bounded iCalendar parser, exporter and preview workflow
+│  ├─ semester/                 # timetable snapshot rules and application UI
 │  └─ timer/usePomodoro.ts      # deadline-timestamp driven
 ├─ hooks/                       # useNow, useTheme
 ├─ components/
@@ -166,13 +219,16 @@ repo is renamed or moved to a custom domain — override with `VITE_SITE_URL` in
 
 ## Tests
 
-80 tests across 6 files. They are written as **regression tests for specific defects**, so the
+117 tests across 18 files. They are written as **regression tests for specific defects**, so the
 comments name what each one prevents:
 
 - `timetableLayout.test.ts` — half-hour starts, multi-hour spans, overlap lanes never colliding, unrenderable entries reported rather than hidden
 - `status.test.ts` — time-aware overdue detection, same-day ordering by time, local day keys across a UTC boundary
 - `usePersistentState.test.ts` — the 9 malformed payloads that white-screened the previous build, plus quota-failure reporting
 - `legacyMigration.test.ts` — idempotent, non-clobbering, retryable
+- `ics.test.ts` / `icsTransfer.test.tsx` — supported calendar constructs, escaping/folding, skipped rules, preview and non-overwriting import
+- `semesterTemplates.test.ts` / `semesterTemplatesPage.test.tsx` — snapshots, duplicate names, selective application, edits that leave templates unchanged
+- `backup.test.tsx` — round-trips imported events and semester templates
 - `seed.test.ts` — sample data stays valid and current
 - `app.test.tsx` — routing, `aria-current`, first-run empty state, and two invariants: **no unnamed icon button** and **no `focus:outline-none`**
 
