@@ -41,6 +41,33 @@ describe('backup data integrity', () => {
       [KEYS.timetable]: [{ id: 'class-1', subject: 'Physics' }],
       [KEYS.notes]: [{ id: 'note-1', title: 'Notes' }],
       [KEYS.planner]: [{ id: 'planner-1', title: 'Study' }],
+      [KEYS.revisionPlans]: [
+        {
+          id: 'revision-1',
+          title: 'Calculus final',
+          examAt: '2026-10-20T09:00',
+          subjectIds: ['math'],
+          materialIds: ['file-1'],
+          targetSessionMinutes: 45,
+          sessions: [
+            {
+              id: 'revision-session-1',
+              subjectId: 'math',
+              materialIds: ['file-1'],
+              scheduledDate: '2026-10-19',
+              scheduledTime: '09:00',
+              durationMinutes: 45,
+              completed: true,
+              completedAt: '2026-10-19T10:00:00.000Z',
+              createdAt: '2026-10-01T10:00:00.000Z',
+              updatedAt: '2026-10-19T10:00:00.000Z',
+            },
+          ],
+          status: 'completed',
+          createdAt: '2026-10-01T10:00:00.000Z',
+          updatedAt: '2026-10-19T10:00:00.000Z',
+        },
+      ],
       [KEYS.settings]: { theme: 'dark' },
       [EXAM_TIMETABLE_KEY]: [{ id: 'exam-1', subject: 'Calculus' }],
       [MATERIALS_KEY]: { v: 1, data: { subjects: [], folders: [], files: [] } },
@@ -68,7 +95,9 @@ describe('backup data integrity', () => {
   it('still imports a legacy six-key backup', async () => {
     // Adding feature-specific backup keys must not invalidate backups made before those features existed.
     const legacyData = Object.fromEntries(
-      Object.values(KEYS).map((key) => [key, key === KEYS.settings ? { theme: 'light' } : []]),
+      Object.values(KEYS)
+        .filter((key) => key !== KEYS.revisionPlans)
+        .map((key) => [key, key === KEYS.settings ? { theme: 'light' } : []]),
     );
     const result = await importBackup(backupFile(legacyData));
     expect(result).toMatchObject({ ok: true, keys: 6 });

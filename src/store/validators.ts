@@ -112,3 +112,52 @@ export function isValidPlannerEntry(v: unknown): boolean {
     (v.category === undefined || CATEGORIES.includes(v.category as never))
   );
 }
+
+export function isValidRevisionPlan(v: unknown): boolean {
+  if (
+    !isRecord(v) ||
+    !isStr(v.id) ||
+    !isStr(v.title) ||
+    !isValidLocalDateTime(v.examAt) ||
+    !Array.isArray(v.subjectIds) ||
+    !v.subjectIds.every(isStr) ||
+    !Array.isArray(v.materialIds) ||
+    !v.materialIds.every(isStr) ||
+    !Number.isInteger(v.targetSessionMinutes) ||
+    (v.targetSessionMinutes as number) < 5 ||
+    (v.targetSessionMinutes as number) > 480 ||
+    !Array.isArray(v.sessions) ||
+    !v.sessions.every(isValidRevisionSession) ||
+    !['active', 'completed', 'archived'].includes(String(v.status)) ||
+    !isStr(v.createdAt) ||
+    !isStr(v.updatedAt)
+  )
+    return false;
+  return true;
+}
+
+function isValidLocalDateTime(value: unknown): value is string {
+  if (!isStr(value)) return false;
+  const match = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})$/.exec(value);
+  return Boolean(match && isResolvableDayKey(match[1]!) && toMinutes(match[2]!) != null);
+}
+
+function isValidRevisionSession(v: unknown): boolean {
+  return (
+    isRecord(v) &&
+    isStr(v.id) &&
+    isStr(v.subjectId) &&
+    Array.isArray(v.materialIds) &&
+    v.materialIds.every(isStr) &&
+    isResolvableDayKey(v.scheduledDate) &&
+    isStr(v.scheduledTime) &&
+    toMinutes(v.scheduledTime) != null &&
+    Number.isInteger(v.durationMinutes) &&
+    (v.durationMinutes as number) >= 5 &&
+    (v.durationMinutes as number) <= 480 &&
+    typeof v.completed === 'boolean' &&
+    (v.completedAt === undefined || isStr(v.completedAt)) &&
+    isStr(v.createdAt) &&
+    isStr(v.updatedAt)
+  );
+}

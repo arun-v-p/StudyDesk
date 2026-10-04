@@ -8,6 +8,7 @@ import {
   StickyNote,
   FileText,
   GraduationCap,
+  BookOpenCheck,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -28,6 +29,7 @@ export const NAV_ITEMS: NavItem[] = [
   { path: '/notes', label: 'Notes', icon: StickyNote },
   { path: '/materials', label: 'Study Materials', icon: FileText },
   { path: '/exams', label: 'Exam Timetable', icon: GraduationCap },
+  { path: '/revision', label: 'Revision Plans', icon: BookOpenCheck },
 ];
 
 export const SETTINGS_ITEM: NavItem = {
