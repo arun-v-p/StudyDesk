@@ -22,6 +22,7 @@ import {
   isValidPlannerEntry,
   isValidRevisionPlan,
   isValidSemesterTemplate,
+  isValidStudyResource,
   isValidTask,
   isValidTimetableEntry,
 } from './validators';
@@ -34,6 +35,7 @@ import {
   type PlannerEntry,
   type RevisionPlan,
   type SemesterTemplate,
+  type StudyResource,
   type Settings,
   type Task,
   type TimetableEntry,
@@ -50,6 +52,7 @@ export const KEYS = {
   revisionPlans: 'studydesk.revisionPlans',
   calendarEvents: 'studydesk.calendarEvents',
   semesterTemplates: 'studydesk.semesterTemplates',
+  studyResources: 'studydesk.studyResources',
   settings: 'studydesk.settings',
 } as const;
 
@@ -72,6 +75,7 @@ interface StoreValue {
   revisionPlans: Collection<RevisionPlan>;
   calendarEvents: Collection<CalendarEvent>;
   semesterTemplates: Collection<SemesterTemplate>;
+  studyResources: Collection<StudyResource>;
   settings: Settings;
   updateSettings: (patch: Partial<Settings>) => void;
   /** Factory helpers so pages never hand-build an id or timestamp. */
@@ -154,6 +158,12 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     validateItem: isValidSemesterTemplate,
     onError: onStorageError,
   });
+  const studyResources = useCollection<StudyResource>({
+    key: KEYS.studyResources,
+    fallback: [],
+    validateItem: isValidStudyResource,
+    onError: onStorageError,
+  });
   const [settings, setSettings] = usePersistentState<Settings>({
     key: KEYS.settings,
     fallback: DEFAULT_SETTINGS,
@@ -216,6 +226,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       revisionPlans,
       calendarEvents,
       semesterTemplates,
+      studyResources,
       settings,
       updateSettings,
       newTask,
@@ -236,6 +247,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       revisionPlans,
       calendarEvents,
       semesterTemplates,
+      studyResources,
       settings,
       updateSettings,
       newTask,

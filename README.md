@@ -35,6 +35,7 @@ machine. What it trades away is sync between devices — [export and import](#da
 | **Notes**              | Pinnable, tag-filterable, full-text search, relative timestamps                                                                                           |
 | **Revision plans**     | Local exam plans with linked subjects/materials, deterministic review sessions, completion tracking, and manual rescheduling                              |
 | **iCalendar**          | Selective `.ics` export and preview-first import for calendar events and weekly classes                                                                   |
+| **Shareable resources** | Preview-first, local JSON export/import for study links; tags are opt-in and duplicates are never overwritten                                            |
 | **Semester templates** | Reusable named weekly-timetable snapshots with preview and selective application                                                                          |
 | **Installable PWA**    | Standalone install, offline app shell, and explicit user-controlled app updates                                                                           |
 | **Search**             | `⌘K` palette across every entity and page                                                                                                                 |
@@ -193,6 +194,11 @@ cannot restore attachment files.
 Upgrading from the previous build? `legacyMigration.ts` copies your existing `studydesk_*` records
 into the new format on first launch, idempotently and without deleting the originals. See
 [MIGRATION.md](./MIGRATION.md).
+
+Study Materials also supports an explicit shareable link list. Its versioned schema, privacy
+boundaries, URL validation, and import behavior are documented in
+[docs/shareable-resource-list.md](./docs/shareable-resource-list.md). This transfer is local-file
+only and never includes attachment contents.
 
 ## Accessibility
 

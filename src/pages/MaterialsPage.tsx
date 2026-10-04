@@ -25,6 +25,7 @@ import {
   type MaterialKind,
 } from '../store/materials';
 import type { StudyMaterialFile, StudyMaterialFolder } from '../types';
+import { ResourceSharing } from '../features/sharing/ResourceSharing';
 
 const ACCEPT =
   '.pdf,.txt,.md,.docx,application/pdf,text/plain,text/markdown,application/vnd.openxmlformats-officedocument.wordprocessingml.document';
@@ -199,6 +200,7 @@ export function MaterialsPage() {
 
   return (
     <div className="space-y-5">
+      <ResourceSharing />
       <div className="flex flex-wrap items-start gap-3">
         <div>
           <h2 className="text-fg text-xl font-bold tracking-tight">Study Materials</h2>
