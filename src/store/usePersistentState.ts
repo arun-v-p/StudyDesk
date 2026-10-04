@@ -9,7 +9,7 @@
  *  3. No `storage` listener, so two open tabs stomp each other.
  *  4. Quota errors were logged to console only — the edit looked saved, then vanished.
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { storage } from '../lib/safeStorage';
 
 export const SCHEMA_VERSION = 2;
@@ -185,5 +185,8 @@ export function useCollection<Item extends { id: string }>(
     [setItems],
   );
 
-  return { items, setItems, add, update, remove, restore };
+  return useMemo(
+    () => ({ items, setItems, add, update, remove, restore }),
+    [items, setItems, add, update, remove, restore],
+  );
 }

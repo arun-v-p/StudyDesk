@@ -11,6 +11,7 @@ import { TextField } from '../components/ui/Field';
 import { Modal } from '../components/ui/Modal';
 import { dayKey, isValidDayKey } from '../lib/dates';
 import { deadlineStatus, relativeDue, sortDeadlines, STATUS_TONE } from '../lib/status';
+import { selectActiveDeadlines } from '../store/selectors';
 import { entriesForDay, subjectColors, subjectHue } from '../features/timetable/layout';
 import type { ResolvedTheme } from '../hooks/useTheme';
 import type { Task, TaskSubtask } from '../types';
@@ -61,8 +62,7 @@ export function TodayPage({ theme }: { theme: ResolvedTheme }) {
 
   const urgent = useMemo(
     () =>
-      sortDeadlines(deadlines.items)
-        .filter((d) => !d.completed)
+      sortDeadlines(selectActiveDeadlines(deadlines.items))
         .map((d) => ({ d, status: deadlineStatus(d, now) }))
         .filter(({ status }) => status === 'overdue' || status === 'today' || status === 'tomorrow')
         .slice(0, 5),

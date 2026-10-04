@@ -80,7 +80,9 @@ export function SearchPalette({ open, onClose }: { open: boolean; onClose: () =>
       ...deadlines.items.map<Hit>((d) => ({
         id: d.id,
         label: d.title,
-        detail: [d.subject, d.dueDate].filter(Boolean).join(' · '),
+        detail: [d.subject, d.dueDate, d.completed ? 'Completed deadline' : 'Active deadline']
+          .filter(Boolean)
+          .join(' · '),
         path: '/deadlines',
         kind: 'deadline',
       })),
