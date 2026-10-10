@@ -59,4 +59,18 @@ describe('revision schedule generation', () => {
       reason: 'invalid-exam',
     });
   });
+
+  it('uses a chosen start time for generated sessions', () => {
+    const result = generateReviewSchedule(
+      ['math'],
+      '2026-10-12T09:00',
+      new Date('2026-10-10T06:00'),
+      60,
+      '16:30',
+    );
+    expect(result).toEqual({
+      ok: true,
+      sessions: [{ subjectId: 'math', scheduledDate: '2026-10-10', scheduledTime: '16:30' }],
+    });
+  });
 });

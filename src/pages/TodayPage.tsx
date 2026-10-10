@@ -59,6 +59,13 @@ export function TodayPage({ theme }: { theme: ResolvedTheme }) {
       ).length,
     [tasks.items, todayKey],
   );
+  const completedTasks = useMemo(
+    () =>
+      tasks.items
+        .filter((task) => task.completed)
+        .sort((a, b) => (b.completedAt ?? b.createdAt).localeCompare(a.completedAt ?? a.createdAt)),
+    [tasks.items],
+  );
 
   const urgent = useMemo(
     () =>
@@ -266,6 +273,51 @@ export function TodayPage({ theme }: { theme: ResolvedTheme }) {
                   );
                 })}
               </ul>
+            )}
+
+            {completedTasks.length > 0 && (
+              <details className="border-line mt-4 border-t pt-3">
+                <summary className="text-muted cursor-pointer text-sm font-semibold">
+                  Completed tasks ({completedTasks.length})
+                </summary>
+                <ul className="mt-2 space-y-0.5">
+                  {completedTasks.map((task) => (
+                    <li key={task.id} className="group task-row">
+                      <button
+                        type="button"
+                        role="checkbox"
+                        aria-checked={true}
+                        aria-label={`Mark “${task.title}” as incomplete`}
+                        onClick={() => {
+                          tasks.update(task.id, taskCompletionPatch(task, false));
+                          toast({ message: 'Task reopened', tone: 'info' });
+                        }}
+                        className="checkbox border-success bg-success text-white"
+                      >
+                        <Check className="h-3 w-3" aria-hidden="true" strokeWidth={3.4} />
+                      </button>
+                      <div className="min-w-0 flex-1">
+                        <span className="text-muted block truncate text-sm line-through">
+                          {task.title}
+                        </span>
+                        <span className="text-subtle block truncate text-xs">
+                          {taskWorkloadLabel(task)}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn btn--ghost !min-h-8 !py-1 !text-xs"
+                        onClick={() => {
+                          tasks.update(task.id, taskCompletionPatch(task, false));
+                          toast({ message: 'Task reopened', tone: 'info' });
+                        }}
+                      >
+                        Reopen
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </details>
             )}
           </Card>
 
