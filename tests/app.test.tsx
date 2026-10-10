@@ -44,6 +44,21 @@ describe('App shell', () => {
     expect(screen.getByRole('link', { name: /^today$/i })).not.toHaveAttribute('aria-current');
   });
 
+  it('shows completed tasks and lets the user reopen one', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await h1(/^today$/i);
+
+    await user.type(screen.getByRole('textbox', { name: 'New task' }), 'Reopen me');
+    await user.click(screen.getByRole('button', { name: 'Add task' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Mark “Reopen me” as done' }));
+
+    await user.click(screen.getByText('Completed tasks (1)'));
+    expect(screen.getByRole('button', { name: 'Reopen' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Reopen' }));
+    expect(screen.getByRole('checkbox', { name: 'Mark “Reopen me” as done' })).toBeInTheDocument();
+  });
+
   it('shows a first-run empty state with a call to action, not a bare sentence', async () => {
     render(<App />);
     await h1(/^today$/i);

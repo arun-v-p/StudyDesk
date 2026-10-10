@@ -16,7 +16,7 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { IconButton } from '../components/ui/IconButton';
 import { ConfirmDialog, Modal } from '../components/ui/Modal';
 import { TextField } from '../components/ui/Field';
-import { dayKey, dayKeyOffset, format, fromDayKey } from '../lib/dates';
+import { dayKey, dayKeyOffset, format, fromDayKey, toMinutes } from '../lib/dates';
 import { createId } from '../lib/id';
 import {
   completeRevisionSession,
@@ -34,6 +34,7 @@ type PlanDraft = {
   subjectIds: string[];
   materialIds: string[];
   targetSessionMinutes: string;
+  preferredStartTime: string;
 };
 
 const emptyDraft = (): PlanDraft => ({
@@ -42,10 +43,13 @@ const emptyDraft = (): PlanDraft => ({
   subjectIds: [],
   materialIds: [],
   targetSessionMinutes: '45',
+  preferredStartTime: '09:00',
 });
 
 function schedulingMessage(reason: string, availableDays: number): string {
   if (reason === 'invalid-exam') return 'Choose a valid local exam date and time.';
+  if (reason === 'invalid-start-time')
+    return 'Choose a start time that lets the session finish by 22:00.';
   if (reason === 'past-exam')
     return 'The exam date has passed. Move it to a future date before generating sessions.';
   if (reason === 'exam-today')
@@ -59,7 +63,7 @@ function sessionTimeLabel(session: RevisionSession): string {
 }
 
 export function RevisionPage() {
-  const { revisionPlans, toast } = useStore();
+  const { revisionPlans, studyResources, toast } = useStore();
   const { metadata } = useMaterials();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState<RevisionPlan | null>(null);
@@ -76,9 +80,28 @@ export function RevisionPage() {
   const today = dayKey(new Date());
 
   const subjects = metadata.subjects;
-  const eligibleMaterials = metadata.files.filter((file) =>
-    draft.subjectIds.includes(file.subjectId),
+  const materialOptions = useMemo(() => {
+    const fileOptions = metadata.files.map((file) => ({
+      id: file.id,
+      name: file.name,
+      subjectId: file.subjectId,
+      kind: 'file' as const,
+    }));
+    const subjectByName = new Map(
+      subjects.map((subject) => [subject.name.trim().toLocaleLowerCase(), subject.id]),
+    );
+    const linkOptions = studyResources.items.flatMap((resource) => {
+      const subjectId = subjectByName.get(resource.subject.trim().toLocaleLowerCase());
+      return subjectId
+        ? [{ id: resource.id, name: resource.title, subjectId, kind: 'link' as const, resource }]
+        : [];
+    });
+    return [...fileOptions, ...linkOptions];
+  }, [metadata.files, studyResources.items, subjects]);
+  const eligibleMaterials = materialOptions.filter((material) =>
+    draft.subjectIds.includes(material.subjectId),
   );
+  const materialForId = (id: string) => materialOptions.find((material) => material.id === id);
   const plans = useMemo(
     () =>
       revisionPlans.items
@@ -104,6 +127,7 @@ export function RevisionPage() {
       subjectIds: [...plan.subjectIds],
       materialIds: [...plan.materialIds],
       targetSessionMinutes: String(plan.targetSessionMinutes),
+      preferredStartTime: plan.sessions[0]?.scheduledTime ?? '09:00',
     });
     setFormError(null);
     setDialogOpen(true);
@@ -123,14 +147,22 @@ export function RevisionPage() {
     if (!draft.title.trim()) return setFormError('Add a title for this revision plan.');
     if (!Number.isInteger(minutes) || minutes < 5 || minutes > 480)
       return setFormError('Session duration must be a whole number between 5 and 480 minutes.');
-    const generated = generateReviewSchedule(draft.subjectIds, draft.examAt, new Date(), minutes);
+    if (toMinutes(draft.preferredStartTime) == null)
+      return setFormError('Choose a valid session start time.');
+    const generated = generateReviewSchedule(
+      draft.subjectIds,
+      draft.examAt,
+      new Date(),
+      minutes,
+      draft.preferredStartTime,
+    );
     if (!generated.ok)
       return setFormError(schedulingMessage(generated.reason, generated.availableDays));
 
     const now = new Date().toISOString();
     const sessions = generated.sessions.map((slot) => {
       const linkedMaterials = draft.materialIds.filter(
-        (id) => metadata.files.find((file) => file.id === id)?.subjectId === slot.subjectId,
+        (id) => materialForId(id)?.subjectId === slot.subjectId,
       );
       const previous = editingPlan?.sessions.find(
         (session) => session.subjectId === slot.subjectId,
@@ -139,8 +171,9 @@ export function RevisionPage() {
         id: previous?.id ?? createId(),
         subjectId: slot.subjectId,
         materialIds: linkedMaterials,
-        scheduledDate: slot.scheduledDate,
-        scheduledTime: slot.scheduledTime,
+        // Keep a student's manually adjusted session slot when updating the plan.
+        scheduledDate: previous?.scheduledDate ?? slot.scheduledDate,
+        scheduledTime: previous?.scheduledTime ?? slot.scheduledTime,
         durationMinutes: previous?.durationMinutes ?? minutes,
         completed: previous?.completed ?? false,
         ...(previous?.completedAt ? { completedAt: previous.completedAt } : {}),
@@ -288,7 +321,7 @@ export function RevisionPage() {
               (id) => subjects.find((subject) => subject.id === id)?.name ?? 'Removed subject',
             );
             const linkedMaterials = plan.materialIds.map(
-              (id) => metadata.files.find((file) => file.id === id)?.name ?? 'Removed material',
+              (id) => materialForId(id)?.name ?? 'Removed material',
             );
             return (
               <Card key={plan.id} className="space-y-4">
@@ -388,7 +421,7 @@ export function RevisionPage() {
                         subjects.find((subject) => subject.id === session.subjectId)?.name ??
                         'Removed subject';
                       const sessionMaterials = session.materialIds
-                        .map((id) => metadata.files.find((file) => file.id === id)?.name)
+                        .map((id) => materialForId(id)?.name)
                         .filter(Boolean);
                       const isEditing =
                         editingSession?.planId === plan.id &&
@@ -588,6 +621,15 @@ export function RevisionPage() {
                 setDraft((value) => ({ ...value, targetSessionMinutes: event.target.value }))
               }
             />
+            <TextField
+              label="Start time for generated sessions"
+              type="time"
+              required
+              value={draft.preferredStartTime}
+              onChange={(event) =>
+                setDraft((value) => ({ ...value, preferredStartTime: event.target.value }))
+              }
+            />
           </div>
 
           <fieldset>
@@ -636,11 +678,13 @@ export function RevisionPage() {
           {draft.subjectIds.length > 0 && (
             <fieldset>
               <legend className="field-label">
-                Study materials <span className="text-subtle font-normal">(optional)</span>
+                Study materials &amp; links{' '}
+                <span className="text-subtle font-normal">(optional)</span>
               </legend>
               {eligibleMaterials.length === 0 ? (
                 <p className="text-muted mt-1 text-sm">
-                  No materials are linked to the selected subjects yet.
+                  No uploaded materials or saved links match the selected subjects yet. Add a file
+                  or link in Study Materials, using the same subject name.
                 </p>
               ) : (
                 <div className="mt-2 max-h-36 space-y-1 overflow-y-auto">
@@ -656,6 +700,7 @@ export function RevisionPage() {
                       />
                       <span className="text-fg min-w-0 flex-1 truncate">{file.name}</span>
                       <span className="text-subtle">
+                        {file.kind === 'link' ? 'Link · ' : ''}
                         {subjects.find((subject) => subject.id === file.subjectId)?.name}
                       </span>
                     </label>
@@ -667,9 +712,10 @@ export function RevisionPage() {
 
           <p className="text-muted border-line flex gap-2 border-t pt-3 text-xs">
             <Clock3 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-            One session per subject, evenly spaced through the day before the exam. Sessions start
-            at 09:00, except a session today uses the next half-hour slot when its full duration
-            fits before 22:00. Exam day is reserved for the exam.
+            One session per subject, evenly spaced through the days before the exam. Today's session
+            uses the next available half-hour at or after the selected start time. Exam day is
+            reserved for the exam. After creating the plan, use a session’s edit button to set its
+            exact date, time and duration; those adjustments are retained when you edit the plan.
           </p>
         </form>
       </Modal>
