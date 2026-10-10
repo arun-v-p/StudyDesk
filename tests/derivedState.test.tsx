@@ -214,6 +214,36 @@ describe('derived data selectors', () => {
       'Lab report',
     );
   });
+
+  it('shows exam timetable entries on their calendar date', () => {
+    const today = dayKey(new Date());
+    persistCollection('studydesk.examTimetable', [
+      {
+        id: 'exam-today',
+        subject: 'Calculus final',
+        date: today,
+        startTime: '09:00',
+        endTime: '12:00',
+        room: 'Hall A',
+        note: '',
+        validFrom: today,
+        validUntil: today,
+      },
+    ]);
+    render(
+      <AppStoreProvider>
+        <CalendarPage />
+      </AppStoreProvider>,
+    );
+
+    const day = screen.getByRole('gridcell', {
+      name: `${format(new Date(), 'd MMMM yyyy')}, 1 item`,
+    });
+    fireEvent.click(day);
+    expect(screen.getByRole('region', { name: 'Exams' })).toHaveTextContent(
+      'Calculus final09:00–12:00',
+    );
+  });
 });
 
 describe('Settings count source data', () => {
