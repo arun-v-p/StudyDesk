@@ -11,7 +11,13 @@ export type ScheduleResult =
   | { ok: true; sessions: ScheduledReview[] }
   | {
       ok: false;
-      reason: 'invalid-exam' | 'past-exam' | 'exam-today' | 'no-subjects' | 'insufficient-days';
+      reason:
+        | 'invalid-exam'
+        | 'invalid-start-time'
+        | 'past-exam'
+        | 'exam-today'
+        | 'no-subjects'
+        | 'insufficient-days';
       availableDays: number;
     };
 
@@ -26,10 +32,14 @@ export function generateReviewSchedule(
   examAt: string,
   today = new Date(),
   sessionDurationMinutes = 45,
+  preferredStartTime = '09:00',
 ): ScheduleResult {
   if (subjectIds.length === 0) return { ok: false, reason: 'no-subjects', availableDays: 0 };
   if (!isValidLocalExamDateTime(examAt))
     return { ok: false, reason: 'invalid-exam', availableDays: 0 };
+  const preferredStartMinutes = toMinutes(preferredStartTime);
+  if (preferredStartMinutes == null || preferredStartMinutes + sessionDurationMinutes > 22 * 60)
+    return { ok: false, reason: 'invalid-start-time', availableDays: 0 };
 
   const todayKey = dayKey(today);
   const examDate = examAt.slice(0, 10);
@@ -37,10 +47,10 @@ export function generateReviewSchedule(
   if (examDate === todayKey) return { ok: false, reason: 'exam-today', availableDays: 0 };
 
   const currentMinutes = today.getHours() * 60 + today.getMinutes();
-  const sameDayMinutes = Math.max(9 * 60, Math.ceil((currentMinutes + 1) / 30) * 30);
+  const sameDayMinutes = Math.max(preferredStartMinutes, Math.ceil((currentMinutes + 1) / 30) * 30);
   const canUseToday = sameDayMinutes + sessionDurationMinutes <= 22 * 60;
   const firstStudyDate = canUseToday ? todayKey : dayKey(addDays(fromDayKey(todayKey), 1));
-  const firstStudyTime = canUseToday ? fromMinutes(sameDayMinutes) : '09:00';
+  const firstStudyTime = canUseToday ? fromMinutes(sameDayMinutes) : preferredStartTime;
   const lastStudyDay = fromDayKey(examDate);
   lastStudyDay.setDate(lastStudyDay.getDate() - 1);
   const availableDays = Math.max(
@@ -58,7 +68,7 @@ export function generateReviewSchedule(
     return {
       subjectId,
       scheduledDate: dayKey(addDays(fromDayKey(firstStudyDate), dayOffset)),
-      scheduledTime: dayOffset === 0 ? firstStudyTime : '09:00',
+      scheduledTime: dayOffset === 0 ? firstStudyTime : preferredStartTime,
     };
   });
   return { ok: true, sessions };
