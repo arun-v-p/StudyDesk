@@ -97,8 +97,11 @@ export function Sidebar({
         </nav>
 
         <div className="border-border mt-auto flex flex-col gap-2.5 border-t pt-3.5">
-          <div className="text-2xs text-subtle flex items-center gap-2 px-2.5">
-            <span className="sr-only">Browser storage used</span>
+          <div
+            className="text-2xs text-subtle flex items-center gap-2 px-2.5"
+            title="Approximate local browser storage used by StudyDesk records, measured against 5 MB. Uploaded attachment files are stored separately."
+          >
+            <span className="shrink-0">Local data</span>
             <span aria-hidden="true" className="bg-raised h-1 flex-1 overflow-hidden rounded-full">
               <span
                 className="from-accent to-info block h-full rounded-full bg-gradient-to-r"
@@ -106,7 +109,7 @@ export function Sidebar({
               />
             </span>
             <span className="tabular-nums">
-              {storagePercent < 1 ? '<1' : Math.round(storagePercent)}%
+              {storagePercent < 1 ? '<1' : Math.round(storagePercent)}% of 5 MB
             </span>
           </div>
           <div className="flex gap-1.5 px-1">
