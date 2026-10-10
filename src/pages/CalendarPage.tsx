@@ -12,6 +12,7 @@ import {
 } from 'date-fns';
 import { CalendarRange, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { useStore } from '../store/AppStore';
+import { useExamTimetable } from '../store/examTimetable';
 import { useNow } from '../hooks/useNow';
 import { Card, CardHeader, Chip } from '../components/ui/Card';
 import { EmptyState } from '../components/ui/EmptyState';
@@ -46,6 +47,7 @@ interface FormState {
 export function CalendarPage() {
   const now = useNow(60_000);
   const { planner, deadlines, timetable, calendarEvents, newPlannerEntry, toast } = useStore();
+  const exams = useExamTimetable();
   const [month, setMonth] = useState(() => new Date(now.getFullYear(), now.getMonth(), 1));
   const [selected, setSelected] = useState<Date>(
     () => new Date(now.getFullYear(), now.getMonth(), now.getDate()),
@@ -108,6 +110,7 @@ export function CalendarPage() {
     (d) => d.completed && d.dueDate === selectedKey && isResolvableDayKey(d.dueDate),
   );
   const selectedClasses = timetable.items.filter((t) => t.day === selected.getDay());
+  const selectedExams = exams.items.filter((exam) => exam.date === selectedKey);
   const selectedCalendarEvents = calendarEvents.items.filter((event) =>
     event.allDay
       ? event.startDate <= selectedKey && event.endDate > selectedKey
@@ -170,6 +173,7 @@ export function CalendarPage() {
     let dl = 0;
     let pl = 0;
     let imported = 0;
+    let exam = 0;
     for (const d of activeDeadlines) {
       if (isResolvableDayKey(d.dueDate) && d.dueDate.slice(0, 7) === format(month, 'yyyy-MM')) dl++;
     }
@@ -183,8 +187,12 @@ export function CalendarPage() {
       )
         imported++;
     }
-    return { dl, pl, imported };
-  }, [activeDeadlines, planner.items, calendarEvents.items, month]);
+    for (const item of exams.items) {
+      if (isResolvableDayKey(item.date) && item.date.slice(0, 7) === format(month, 'yyyy-MM'))
+        exam++;
+    }
+    return { dl, pl, imported, exam };
+  }, [activeDeadlines, planner.items, calendarEvents.items, exams.items, month]);
 
   const dowLabels = WEEK_STARTS_MONDAY
     ? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -199,7 +207,8 @@ export function CalendarPage() {
             {format(month, 'MMMM yyyy')} · {monthCounts.dl} deadline
             {monthCounts.dl === 1 ? '' : 's'} · {monthCounts.pl} planned
             {' · '}
-            {monthCounts.imported} imported
+            {monthCounts.imported} imported · {monthCounts.exam} exam
+            {monthCounts.exam === 1 ? '' : 's'}
           </p>
         </div>
         <div className="ml-auto flex items-center gap-1.5">
@@ -250,6 +259,7 @@ export function CalendarPage() {
                   ? event.startDate <= key && event.endDate > key
                   : event.startDate <= key && event.endDate >= key,
               );
+              const dayExams = exams.items.filter((exam) => exam.date === key);
               const hasClass = timetable.items.some((t) => t.day === day.getDay());
               const isSelected = isSameDay(day, selected);
               const inMonth = isSameMonth(day, month);
@@ -261,9 +271,13 @@ export function CalendarPage() {
                   aria-selected={isSelected}
                   aria-current={isToday(day) ? 'date' : undefined}
                   aria-label={`${format(day, 'd MMMM yyyy')}${
-                    dayDeadlines.length + dayPlanner.length + dayEvents.length > 0
-                      ? `, ${dayDeadlines.length + dayPlanner.length + dayEvents.length} item${
-                          dayDeadlines.length + dayPlanner.length + dayEvents.length === 1
+                    dayDeadlines.length + dayPlanner.length + dayEvents.length + dayExams.length > 0
+                      ? `, ${dayDeadlines.length + dayPlanner.length + dayEvents.length + dayExams.length} item${
+                          dayDeadlines.length +
+                            dayPlanner.length +
+                            dayEvents.length +
+                            dayExams.length ===
+                          1
                             ? ''
                             : 's'
                         }`
@@ -298,9 +312,14 @@ export function CalendarPage() {
                     {dayEvents.slice(0, 2).map((event) => (
                       <span key={event.id} className="bg-accent h-1 w-1 rounded-full" />
                     ))}
-                    {!dayPlanner.length && !dayDeadlines.length && hasClass && (
-                      <span className="bg-accent h-1 w-1 rounded-full" />
-                    )}
+                    {dayExams.slice(0, 2).map((exam) => (
+                      <span key={exam.id} className="bg-warning h-1 w-1 rounded-full" />
+                    ))}
+                    {!dayPlanner.length &&
+                      !dayDeadlines.length &&
+                      !dayEvents.length &&
+                      !dayExams.length &&
+                      hasClass && <span className="bg-accent h-1 w-1 rounded-full" />}
                   </span>
                 </button>
               );
@@ -313,6 +332,7 @@ export function CalendarPage() {
             <LegendItem className="bg-info" label="Low" />
             <LegendItem className="bg-success" label="Planner" />
             <LegendItem className="bg-accent" label="Class" />
+            <LegendItem className="bg-warning" label="Exam" />
           </div>
         </Card>
 
@@ -335,7 +355,8 @@ export function CalendarPage() {
             selectedDeadlines.length === 0 &&
             selectedCompletedDeadlines.length === 0 &&
             selectedClasses.length === 0 &&
-            selectedCalendarEvents.length === 0 ? (
+            selectedCalendarEvents.length === 0 &&
+            selectedExams.length === 0 ? (
               <p className="text-subtle py-1 text-sm">Nothing on this date.</p>
             ) : (
               <div className="space-y-4">
@@ -453,6 +474,30 @@ export function CalendarPage() {
                   </section>
                 )}
 
+                {selectedExams.length > 0 && (
+                  <section aria-label="Exams">
+                    <h3 className="text-2xs text-warning mb-2 font-bold tracking-wider uppercase">
+                      Exams
+                    </h3>
+                    <ul className="space-y-1.5">
+                      {selectedExams.map((exam) => (
+                        <li key={exam.id} className="flex items-center gap-2.5">
+                          <span
+                            aria-hidden="true"
+                            className="bg-warning h-2 w-2 shrink-0 rounded-full"
+                          />
+                          <span className="text-fg min-w-0 flex-1 truncate text-sm">
+                            {exam.subject}
+                          </span>
+                          <span className="text-2xs text-subtle shrink-0 font-mono">
+                            {exam.startTime}–{exam.endTime}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
+
                 {selectedCalendarEvents.length > 0 && (
                   <section aria-label="Imported calendar events">
                     <h3 className="text-2xs text-accent mb-2 font-bold tracking-wider uppercase">
@@ -501,7 +546,8 @@ export function CalendarPage() {
 
           {planner.items.length === 0 &&
             deadlines.items.length === 0 &&
-            calendarEvents.items.length === 0 && (
+            calendarEvents.items.length === 0 &&
+            exams.items.length === 0 && (
               <Card>
                 <EmptyState
                   compact

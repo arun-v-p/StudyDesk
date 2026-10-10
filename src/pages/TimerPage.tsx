@@ -3,7 +3,8 @@ import { Pause, Play, RotateCcw, SkipForward, Volume2, VolumeX } from 'lucide-re
 import { useStore } from '../store/AppStore';
 import { Card } from '../components/ui/Card';
 import { IconButton } from '../components/ui/IconButton';
-import { Select } from '../components/ui/Field';
+import { Select, TextField } from '../components/ui/Field';
+import { Modal } from '../components/ui/Modal';
 import { addFocusMinutes } from '../features/tasks/workload';
 import {
   usePomodoro,
@@ -17,10 +18,13 @@ import {
 const MODES: TimerMode[] = ['focus', 'shortBreak', 'longBreak'];
 
 export function TimerPage() {
-  const { toast, tasks } = useStore();
+  const { toast, tasks, newTask } = useStore();
   const [sound, setSound] = useState(true);
   const [selectedTaskId, setSelectedTaskId] = useState('');
   const [sessionTaskId, setSessionTaskId] = useState('');
+  const [addTaskOpen, setAddTaskOpen] = useState(false);
+  const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [newTaskError, setNewTaskError] = useState<string | undefined>();
   const [notificationStatus, setNotificationStatus] = useState<
     'granted' | 'default' | 'denied' | 'unsupported'
   >('unsupported');
@@ -134,6 +138,21 @@ export function TimerPage() {
     setSoundStatus('Test sound played');
   };
 
+  const addTask = () => {
+    const title = newTaskTitle.trim();
+    if (!title) {
+      setNewTaskError('A task title is required.');
+      return;
+    }
+    const task = newTask(title);
+    tasks.add(task);
+    setSelectedTaskId(task.id);
+    setNewTaskTitle('');
+    setNewTaskError(undefined);
+    setAddTaskOpen(false);
+    toast({ message: `Added “${task.title}” and selected it for this session`, tone: 'success' });
+  };
+
   const mm = String(t.minutes).padStart(2, '0');
   const ss = String(t.seconds).padStart(2, '0');
 
@@ -236,7 +255,7 @@ export function TimerPage() {
         </IconButton>
       </div>
 
-      <div className="w-full">
+      <div className="w-full space-y-2">
         <Select
           label="Attribute this focus session to a task"
           value={selectedTaskId}
@@ -254,6 +273,18 @@ export function TimerPage() {
               .map((task) => ({ value: task.id, label: task.title })),
           ]}
         />
+        <button
+          type="button"
+          className="btn btn--ghost !min-h-8 !py-1 !text-xs"
+          onClick={() => {
+            setNewTaskTitle('');
+            setNewTaskError(undefined);
+            setAddTaskOpen(true);
+          }}
+          disabled={t.isRunning && t.mode === 'focus'}
+        >
+          Add task
+        </button>
       </div>
 
       {/* Pomodoro cycle: the original promised a long break every 4 sessions but never tracked it. */}
@@ -332,6 +363,41 @@ export function TimerPage() {
           </span>
         </div>
       </Card>
+
+      <Modal
+        open={addTaskOpen}
+        onClose={() => setAddTaskOpen(false)}
+        title="Add task for focus"
+        footer={
+          <>
+            <button type="button" className="btn btn--ghost" onClick={() => setAddTaskOpen(false)}>
+              Cancel
+            </button>
+            <button type="button" className="btn btn--primary" onClick={addTask}>
+              Add task
+            </button>
+          </>
+        }
+      >
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            addTask();
+          }}
+        >
+          <TextField
+            label="Task"
+            required
+            value={newTaskTitle}
+            error={newTaskError}
+            onChange={(event) => {
+              setNewTaskTitle(event.target.value);
+              if (newTaskError) setNewTaskError(undefined);
+            }}
+            placeholder="e.g. Review chapter 4"
+          />
+        </form>
+      </Modal>
     </div>
   );
 }

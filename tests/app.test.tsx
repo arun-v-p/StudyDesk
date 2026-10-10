@@ -174,6 +174,27 @@ describe('timetable rendering', () => {
         );
         expect(screen.getByRole('button', { name: /test sound/i })).toBeInTheDocument();
       });
+
+      it('adds a task from the timer and selects it for the next focus session', async () => {
+        const user = userEvent.setup();
+        render(<App />);
+        await h1(/^today$/i);
+        await user.click(screen.getByRole('link', { name: /^focus timer/i }));
+        await h1(/^focus timer$/i);
+
+        await user.click(screen.getByRole('button', { name: /^add task$/i }));
+        const dialog = screen.getByRole('dialog', { name: 'Add task for focus' });
+        await user.type(
+          within(dialog).getByRole('textbox', { name: /^task/i }),
+          'Review chapter 4',
+        );
+        await user.click(within(dialog).getByRole('button', { name: /^add task$/i }));
+
+        expect(screen.getByLabelText(/attribute this focus session/i)).not.toHaveValue('');
+        expect(
+          (screen.getByRole('option', { name: 'Review chapter 4' }) as HTMLOptionElement).selected,
+        ).toBe(true);
+      });
     });
   });
 
