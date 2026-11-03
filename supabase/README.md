@@ -11,8 +11,10 @@
    - `http://localhost:3000/**`
    - `https://arun-v-p.github.io/StudyDesk/**`
 
-4. Keep Email authentication enabled. StudyDesk uses passwordless email links;
-   Google sign-in can be enabled later without changing the schema.
+4. Keep Email authentication enabled. StudyDesk currently implements
+   passwordless email-link sign-in only; Google OAuth and password-reset flows
+   are not implemented in the application. Enabling another provider in the
+   dashboard alone does not add its sign-in flow to StudyDesk.
 5. Deploy the app with `VITE_SUPABASE_URL` and
    `VITE_SUPABASE_PUBLISHABLE_KEY` configured. Never expose a Supabase service
    role key in a Vite variable or GitHub Pages build.
@@ -33,7 +35,7 @@ tombstones individually, preserving local-only records and merging singleton
 metadata rather than clearing the device's complete local documents.
 
 Study Material metadata syncs with the planner. Attachment bytes intentionally
-remain local in this release: existing encrypted-integrity ZIP backups are the
-safe transfer mechanism until a separate private Storage migration adds
-resumable uploads, quotas, file deletion lifecycle, and end-to-end attachment
-tests.
+remain local in this release: ZIP backups with SHA-256 integrity checks (not
+application encryption) are the transfer mechanism until a separate private
+Storage migration adds resumable uploads, quotas, file deletion lifecycle, and
+end-to-end attachment tests.

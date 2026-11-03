@@ -1,8 +1,8 @@
 # Placing StudyDesk v2 into your repository
 
-This is a complete, working rewrite — not the mockup. It builds, passes lint,
-typechecks, has 80 passing tests, and renders. This document covers how to land
-it in `arun-v-p/StudyDesk` cleanly, and how to hand it to a client.
+This is a complete, working rewrite — not the mockup. It builds, passes lint
+and typechecks, and is covered by an automated test suite. This document covers
+how to land it in `arun-v-p/StudyDesk` cleanly, and how to hand it to a client.
 
 ---
 
@@ -11,20 +11,20 @@ it in `arun-v-p/StudyDesk` cleanly, and how to hand it to a client.
 A from-scratch implementation of the design in `redesign-preview.html`, built on
 your existing domain model. Nothing is mocked and nothing is stubbed.
 
-|                       | Original (`29d8ede`)     | This                                  |
-| --------------------- | ------------------------ | ------------------------------------- |
-| Source                | 1,641 LOC / 14 files     | 6,676 LOC / 50 files                  |
-| Design tokens         | 0 (352 hardcoded hex)    | Full semantic layer, dark + light     |
-| Routing               | none (`useState` switch) | `HashRouter`, 7 routes, deep-linkable |
-| Tests                 | 0                        | 80                                    |
-| Lint / format         | none                     | ESLint (+`jsx-a11y`) / Prettier       |
-| `<label>` elements    | 0                        | every control                         |
-| `aria-*` attributes   | 0                        | throughout                            |
-| `focus:outline-none`  | 19                       | 0                                     |
-| Error boundary        | none                     | per-route + shell                     |
-| Export / import       | none                     | JSON backup, validated                |
-| Schema version        | none                     | `v: 1` envelope + migrations          |
-| Storage-key migration | n/a                      | automatic, non-destructive            |
+|                       | Original (`29d8ede`)     | This                                                                  |
+| --------------------- | ------------------------ | --------------------------------------------------------------------- |
+| Source                | 1,641 LOC / 14 files     | 6,676 LOC / 50 files                                                  |
+| Design tokens         | 0 (352 hardcoded hex)    | Full semantic layer, dark + light                                     |
+| Routing               | none (`useState` switch) | `BrowserRouter`, with GitHub Pages fallback and static policy entries |
+| Tests                 | 0                        | Automated test suite                                                  |
+| Lint / format         | none                     | ESLint (+`jsx-a11y`) / Prettier                                       |
+| `<label>` elements    | 0                        | every control                                                         |
+| `aria-*` attributes   | 0                        | throughout                                                            |
+| `focus:outline-none`  | 19                       | 0                                                                     |
+| Error boundary        | none                     | per-route + shell                                                     |
+| Export / import       | none                     | JSON backup, validated                                                |
+| Schema version        | none                     | `v: 1` envelope + migrations                                          |
+| Storage-key migration | n/a                      | automatic, non-destructive                                            |
 
 The ~4x size increase is real and deliberate. It is almost entirely the things
 the audit found missing: validation, an accessible primitive layer, the layout
@@ -98,7 +98,7 @@ has real records under the old names. `src/store/legacyMigration.ts` runs in
 - **retryable** — if a write fails it does not set the flag, so it tries again
 
 Users see a "Data from a previous version" card in Settings and can purge the
-old copies themselves once they are satisfied. Eight tests cover this path.
+old copies themselves once they are satisfied. Tests cover this path.
 
 > If you are handing this to a client as a **new** deployment on a different
 > origin, none of this fires — there is no legacy data to find.
@@ -153,7 +153,7 @@ These are assets, not code, and cannot be generated honestly for you:
 Run these before you call it delivered.
 
 ```bash
-npm run ci                        # lint, format, types, 80 tests, build
+npm run ci                        # lint, format, types, tests, build
 npm run preview                   # serve dist/ and click through it
 ```
 
@@ -166,7 +166,7 @@ Then manually verify:
 - [ ] **Reload persistence.** Add data, hard-reload, confirm it survives.
 - [ ] **Export → clear → import.** The full round trip.
 - [ ] **Legacy migration.** If you have old data on the origin, confirm it appears and the Settings card shows.
-- [ ] **Deep links.** Copy `#/timetable`, open in a new tab. Refresh on it. Both must work — `HashRouter` was chosen specifically because GitHub Pages cannot rewrite paths.
+- [ ] **Deep links.** Open `/StudyDesk/timetable` in a new tab and refresh; the GitHub Pages fallback restores the app route. `/StudyDesk/privacy` and `/StudyDesk/terms` have static entry documents for direct navigation and refresh.
 - [ ] **Lighthouse.** Aim for ≥95 on Accessibility. Run it; do not assume.
 - [ ] **Console clean.** No errors or warnings on load or during normal use.
 
@@ -192,14 +192,16 @@ not the 352-string edit the original would have required.
 
 Stated plainly so nothing is a surprise at handoff.
 
-- **No service worker.** The manifest is present and the app is local-first, so
-  it works offline once cached by the browser — but there is no explicit offline
-  shell or install prompt wiring yet. Adding `vite-plugin-pwa` is the natural
-  next step.
+- **Offline support is app-shell-only.** The production build registers a
+  service worker that pre-caches the app shell and static assets. The app must
+  be opened online once before those resources are available offline; user data
+  is not part of the service-worker cache. Updates wait for user confirmation.
 - **No analytics or error reporting.** `ErrorBoundary` has an `onError` prop
   ready for a Sentry DSN; nothing is wired.
-- **No sync.** By design. Two tabs sync via the `storage` event; two _devices_
-  do not. Export/import is the bridge.
+- **Cloud sync is limited.** With Supabase configured, supported planner
+  records and Study Materials metadata sync across devices. Attachment bytes
+  remain local and must be transferred with a complete ZIP backup; cloud sync
+  is not a full-device backup.
 - **No E2E suite.** Unit and integration tests cover the logic and rendering.
   Playwright flows were recommended in the audit but are not included here.
 - **Screenshots absent** (see §4).
@@ -217,8 +219,8 @@ npm run dev       # http://localhost:3000
 ```
 
 Expected CI output: ESLint clean, Prettier clean, `tsc --noEmit` clean under
-`strict` + `noUnusedLocals` + `noUncheckedIndexedAccess`, **80 tests passing
-across 6 files**, and a build producing ~12 chunks with route-level splitting.
+`strict` + `noUnusedLocals` + `noUncheckedIndexedAccess`, the automated test
+suite passing, and a build producing route-level chunks.
 
 First paint is `react` (54 kB gz) + `dates` (7.9 kB gz) + `index` (19.2 kB gz).
 The original shipped a single 64.2 kB gz chunk containing everything; every page
