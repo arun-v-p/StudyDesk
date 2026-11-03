@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { HashRouter, MemoryRouter, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, MemoryRouter, Route, Routes } from 'react-router-dom';
 import { AppShell } from './components/layout/AppShell';
 import { AppStoreProvider } from './store/AppStore';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -36,19 +36,45 @@ const ExamTimetablePage = lazy(() =>
 const RevisionPage = lazy(() =>
   import('./pages/RevisionPage').then((m) => ({ default: m.RevisionPage })),
 );
+const PrivacyPolicyPage = lazy(() =>
+  import('./pages/PolicyPages').then((m) => ({ default: m.PrivacyPolicyPage })),
+);
+const TermsOfServicePage = lazy(() =>
+  import('./pages/PolicyPages').then((m) => ({ default: m.TermsOfServicePage })),
+);
 const NotFoundPage = lazy(() =>
   import('./pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })),
 );
 
+function restoreGithubPagesPath(): void {
+  const requestedPath = new URLSearchParams(window.location.search).get('studydesk-path');
+  if (!requestedPath?.startsWith('/') || requestedPath.startsWith('//')) return;
+
+  const baseUrl = new URL(import.meta.env.BASE_URL, window.location.origin);
+  const restoredUrl = new URL(requestedPath.slice(1), baseUrl);
+  if (
+    restoredUrl.origin !== window.location.origin ||
+    !restoredUrl.pathname.startsWith(baseUrl.pathname)
+  )
+    return;
+
+  window.history.replaceState(
+    null,
+    '',
+    `${restoredUrl.pathname}${restoredUrl.search}${restoredUrl.hash}`,
+  );
+}
+
+restoreGithubPagesPath();
+
 /**
- * HashRouter, not BrowserRouter: GitHub Pages cannot rewrite unknown paths to
- * index.html, so a BrowserRouter deep link 404s on refresh. Hash routing works
- * on static hosting with no server configuration.
+ * The production build emits static entry documents for the legal routes so
+ * GitHub Pages can serve clean policy URLs on direct navigation and refresh.
+ * Other app routes remain navigable from the root application shell.
  *
- * Hash routing still needs a parseable document URL. When there is not one —
- * an `about:srcdoc` sandboxed iframe, or a detached document — fall back to
- * MemoryRouter so the single-file preview build renders anywhere. Deep links
- * are meaningless in that context anyway.
+ * When there is no parseable document URL — an `about:srcdoc` sandboxed iframe
+ * or a detached document — fall back to MemoryRouter so the single-file
+ * preview build renders anywhere.
  */
 function hasUsableLocation(): boolean {
   try {
@@ -60,31 +86,31 @@ function hasUsableLocation(): boolean {
   }
 }
 
-const Router = hasUsableLocation() ? HashRouter : MemoryRouter;
+const Router = hasUsableLocation() ? BrowserRouter : MemoryRouter;
 
-export default function App() {
+export default function App({ basename = import.meta.env.BASE_URL }: { basename?: string } = {}) {
   return (
     <AccountProfileProvider>
-      <ProfiledApp />
+      <ProfiledApp basename={basename} />
     </AccountProfileProvider>
   );
 }
 
-function ProfiledApp() {
+function ProfiledApp({ basename }: { basename: string }) {
   const { profileId } = useAccountProfile();
   return (
     <AppStoreProvider key={profileId ?? 'guest'}>
-      <ThemedApp />
+      <ThemedApp basename={basename} />
     </AppStoreProvider>
   );
 }
 
-function ThemedApp() {
+function ThemedApp({ basename }: { basename: string }) {
   const { settings, updateSettings } = useStore();
   const { resolved } = useTheme(settings.theme, (t) => updateSettings({ theme: t }));
 
   return (
-    <Router>
+    <Router basename={hasUsableLocation() ? basename : undefined}>
       <Suspense fallback={<ShellBoot />}>
         <Routes>
           <Route element={<AppShell />}>
@@ -165,6 +191,22 @@ function ThemedApp() {
               element={
                 <ErrorBoundary label="Revision plans">
                   <RevisionPage />
+                </ErrorBoundary>
+              }
+            />
+            <Route
+              path="privacy"
+              element={
+                <ErrorBoundary label="Privacy Policy">
+                  <PrivacyPolicyPage />
+                </ErrorBoundary>
+              }
+            />
+            <Route
+              path="terms"
+              element={
+                <ErrorBoundary label="Terms of Service">
+                  <TermsOfServicePage />
                 </ErrorBoundary>
               }
             />

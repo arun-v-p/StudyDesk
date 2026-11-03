@@ -9,10 +9,7 @@ vi.setConfig({ testTimeout: 15_000 });
 
 beforeEach(() => {
   localStorage.clear();
-  // HashRouter state lives on window.location, which jsdom carries across tests
-  // in a file. Without this reset, a test that navigated to #/notes leaves every
-  // later test starting on the Notes route.
-  window.location.hash = '';
+  window.history.replaceState({}, '', '/');
 });
 
 /**
@@ -37,7 +34,70 @@ describe('App shell', () => {
     await user.click(screen.getByRole('link', { name: /^notes/i }));
     // The Notes route is lazy, so wait for the chunk.
     await h1(/^notes$/i);
-    expect(window.location.hash).toBe('#/notes');
+    expect(window.location.pathname).toBe('/notes');
+  });
+
+  it('links to both legal pages from the shared layout and explains important limits', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await h1(/^today$/i);
+
+    const footer = screen.getByRole('contentinfo');
+    await user.click(within(footer).getByRole('link', { name: 'Privacy Policy' }));
+    expect(
+      await screen.findByRole(
+        'heading',
+        { level: 2, name: 'Privacy Policy' },
+        { timeout: ROUTE_LOAD_TIMEOUT },
+      ),
+    ).toBeVisible();
+    expect(window.location.pathname).toBe('/privacy');
+    expect(screen.getByText(/does not implement email\/password sign-in/i)).toBeInTheDocument();
+    expect(screen.getByText(/no user-facing account deletion/i)).toBeInTheDocument();
+    expect(screen.getByText(/does not sign you out or clear Supabase/i)).toBeInTheDocument();
+    expect(screen.getByText(/integrity checks, not encryption/i)).toBeInTheDocument();
+    expect(screen.getByText(/operated by Arun V P, an individual developer/i)).toBeInTheDocument();
+    expect(screen.getByText(/intended for users worldwide/i)).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: 'vparun.work@gmail.com' })[0]).toHaveAttribute(
+      'href',
+      'mailto:vparun.work@gmail.com',
+    );
+    expect(screen.getByText(/Effective date: 3 November 2026/i)).toBeInTheDocument();
+
+    await user.click(
+      within(screen.getByRole('contentinfo')).getByRole('link', {
+        name: 'Terms of Service',
+      }),
+    );
+    expect(
+      await screen.findByRole(
+        'heading',
+        { level: 2, name: 'Terms of Service' },
+        { timeout: ROUTE_LOAD_TIMEOUT },
+      ),
+    ).toBeVisible();
+    expect(window.location.pathname).toBe('/terms');
+    expect(screen.getByRole('heading', { name: 'Governing law' })).toBeInTheDocument();
+    expect(screen.getByText(/applicable Indian law, with Kerala, India/i)).toBeInTheDocument();
+    expect(screen.getByText(/intended for users worldwide/i)).toBeInTheDocument();
+    expect(screen.getByText(/not presented as a registered company/i)).toBeInTheDocument();
+    expect(
+      screen.queryByText(/outstanding|must be supplied|not established/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it('loads a policy route directly beneath the GitHub Pages base path', async () => {
+    window.history.replaceState({}, '', '/StudyDesk/privacy');
+    render(<App basename="/StudyDesk/" />);
+
+    expect(
+      await screen.findByRole(
+        'heading',
+        { level: 2, name: 'Privacy Policy' },
+        { timeout: ROUTE_LOAD_TIMEOUT },
+      ),
+    ).toBeVisible();
+    expect(window.location.pathname).toBe('/StudyDesk/privacy');
   });
 
   it('marks the active nav item with aria-current', async () => {
