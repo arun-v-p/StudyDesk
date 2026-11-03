@@ -6,6 +6,7 @@ import { useStore } from '../../store/AppStore';
 import { titleFor } from './nav';
 import { nextThemeLabel, nextThemePreference } from '../../hooks/useTheme';
 import type { Settings } from '../../types';
+import { AccountMenu } from '../../features/sync/AccountMenu';
 
 const MODE_WORD: Record<Settings['theme'], string> = {
   dark: 'Dark theme',
@@ -14,9 +15,9 @@ const MODE_WORD: Record<Settings['theme'], string> = {
 };
 
 function ThemeIcon({ theme }: { theme: Settings['theme'] }) {
-  if (theme === 'dark') return <Moon className="h-[17px] w-[17px]" aria-hidden="true" />;
-  if (theme === 'light') return <Sun className="h-[17px] w-[17px]" aria-hidden="true" />;
-  return <Monitor className="h-[17px] w-[17px]" aria-hidden="true" />;
+  if (theme === 'dark') return <Moon className="size-4.25" aria-hidden="true" />;
+  if (theme === 'light') return <Sun className="size-4.25" aria-hidden="true" />;
+  return <Monitor className="size-4.25" aria-hidden="true" />;
 }
 
 export function Topbar({
@@ -74,31 +75,8 @@ export function Topbar({
           <ThemeIcon theme={settings.theme} />
         </IconButton>
 
-        <Initials name={settings.displayName} />
+        <AccountMenu />
       </div>
     </header>
-  );
-}
-
-/** Avatar with initials. Falls back to a neutral mark when no name is set —
- *  the original hardcoded "Arun" into the greeting for every visitor. */
-function Initials({ name }: { name: string }) {
-  const trimmed = name.trim();
-  const text = trimmed
-    ? trimmed
-        .split(/\s+/)
-        .slice(0, 2)
-        .map((w) => w[0]?.toUpperCase() ?? '')
-        .join('')
-    : '·';
-  return (
-    <span
-      className="from-accent to-info grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br text-xs font-bold text-white"
-      role="img"
-      aria-label={trimmed ? `Signed in as ${trimmed}` : 'No display name set'}
-      title={trimmed || 'Set your name in Settings'}
-    >
-      {text}
-    </span>
   );
 }

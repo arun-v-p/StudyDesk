@@ -11,13 +11,22 @@
    - `http://localhost:3000/**`
    - `https://arun-v-p.github.io/StudyDesk/**`
 
-4. Keep Email authentication enabled. StudyDesk currently implements
-   passwordless email-link sign-in only; Google OAuth and password-reset flows
-   are not implemented in the application. Enabling another provider in the
-   dashboard alone does not add its sign-in flow to StudyDesk.
-5. Deploy the app with `VITE_SUPABASE_URL` and
-   `VITE_SUPABASE_PUBLISHABLE_KEY` configured. Never expose a Supabase service
-   role key in a Vite variable or GitHub Pages build.
+4. In **Authentication → Sign In / Providers**, enable Email (passwordless
+   email links) and Google. Configure the Google OAuth client ID and secret in
+   Supabase, and use the callback URL shown by Supabase as an authorized
+   redirect URI in Google Cloud. Keep the Google client secret in Supabase; it
+   is not a Vite environment variable. Add the app's local and production
+   return URLs to Supabase's redirect allow list above.
+5. For GitHub Pages deployments, define `VITE_SUPABASE_URL` and
+   `VITE_SUPABASE_PUBLISHABLE_KEY` as GitHub Actions repository variables. The
+   deployment workflow passes them to the production build and stops a
+   production deployment if either is missing. Both are public browser
+   configuration; never put a Supabase service-role key in a Vite variable or
+   GitHub Pages build.
+
+StudyDesk provides Google OAuth and passwordless email-link sign-in from its
+account menu. It does not manage Google account details or implement
+password-reset flows.
 
 ## Sync model
 

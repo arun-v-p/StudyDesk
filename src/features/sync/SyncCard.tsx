@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { Cloud, Download, LogOut, Mail, Upload } from 'lucide-react';
+import { Cloud, Download, Upload } from 'lucide-react';
 import { Card, CardHeader, Chip } from '../../components/ui/Card';
-import { TextField } from '../../components/ui/Field';
 import { ConfirmDialog } from '../../components/ui/Modal';
 import { isSupabaseConfigured, supabase } from '../../lib/supabase';
 import { importGuestProfileIntoActive, guestProfileRecordCount } from '../../store/backup';
 import { useAccountProfile } from './AccountProfile';
-import { CloudSync, type InitializationStatus } from './cloudSync';
+import { CloudSync, type CloudSyncState, type InitializationStatus } from './cloudSync';
 
 interface Counts {
   remote: number;
@@ -17,9 +16,10 @@ interface Counts {
 /** Authentication and deliberately explicit first-device sync flow. */
 export function SyncCard() {
   const { session, profileId } = useAccountProfile();
-  const [email, setEmail] = useState('');
   const [counts, setCounts] = useState<Counts | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [syncState, setSyncState] = useState<CloudSyncState>('idle');
+  const [online, setOnline] = useState(() => navigator.onLine);
   const [busy, setBusy] = useState(false);
   const [confirmGuestImport, setConfirmGuestImport] = useState(false);
   const syncRef = useRef<CloudSync | null>(null);
@@ -28,12 +28,22 @@ export function SyncCard() {
   const sessionRef = useRef(session);
   sessionRef.current = session;
 
-  if (!syncRef.current) syncRef.current = new CloudSync(setMessage);
+  if (!syncRef.current) syncRef.current = new CloudSync(setMessage, setSyncState);
 
   useEffect(() => {
     mounted.current = true;
     return () => {
       mounted.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const updateOnline = () => setOnline(navigator.onLine);
+    window.addEventListener('online', updateOnline);
+    window.addEventListener('offline', updateOnline);
+    return () => {
+      window.removeEventListener('online', updateOnline);
+      window.removeEventListener('offline', updateOnline);
     };
   }, []);
 
@@ -46,6 +56,7 @@ export function SyncCard() {
     sync.stop();
     setCounts(null);
     setMessage(null);
+    setSyncState('idle');
     setBusy(false);
     if (!currentSession || !supabase) return;
     void sync
@@ -61,8 +72,10 @@ export function SyncCard() {
         }
       })
       .catch((error: unknown) => {
-        if (active && revision === sessionRevision.current)
+        if (active && revision === sessionRevision.current) {
+          setSyncState('error');
           setMessage(error instanceof Error ? error.message : 'Could not start cloud sync.');
+        }
       });
     return () => {
       active = false;
@@ -84,42 +97,24 @@ export function SyncCard() {
     );
   }
 
-  const sendMagicLink = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!supabase) return;
-    const revision = sessionRevision.current;
-    setBusy(true);
-    setMessage(null);
-    const redirectTo = `${window.location.origin}${import.meta.env.BASE_URL}`;
-    try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email: email.trim(),
-        options: { emailRedirectTo: redirectTo },
-      });
-      if (!isCurrentRevision(revision)) return;
-      setMessage(error ? error.message : 'Check your email for a secure sign-in link.');
-    } catch (error) {
-      if (isCurrentRevision(revision))
-        setMessage(error instanceof Error ? error.message : 'Could not send a sign-in link.');
-    } finally {
-      if (isCurrentRevision(revision)) setBusy(false);
-    }
-  };
-
   const upload = async () => {
     const revision = sessionRevision.current;
     setBusy(true);
     setMessage(null);
+    setSyncState('syncing');
     try {
       await syncRef.current!.uploadInitial();
       if (!isCurrentRevision(revision)) return;
+      setSyncState('synced');
       setMessage('This device is now synced. Future changes upload automatically.');
       setCounts((current) =>
         current ? { ...current, remote: Math.max(current.remote, current.local) } : current,
       );
     } catch (error) {
-      if (isCurrentRevision(revision))
+      if (isCurrentRevision(revision)) {
+        setSyncState('error');
         setMessage(error instanceof Error ? error.message : 'Could not upload this device.');
+      }
     } finally {
       if (isCurrentRevision(revision)) {
         setBusy(false);
@@ -139,12 +134,14 @@ export function SyncCard() {
     const revision = sessionRevision.current;
     setBusy(true);
     setMessage(null);
+    setSyncState('syncing');
     try {
       await syncRef.current!.downloadInitial();
       if (!isCurrentRevision(revision)) return;
       window.location.reload();
     } catch (error) {
       if (isCurrentRevision(revision)) {
+        setSyncState('error');
         setMessage(error instanceof Error ? error.message : 'Could not restore cloud data.');
         setBusy(false);
         setCounts((current) =>
@@ -156,22 +153,6 @@ export function SyncCard() {
             : current,
         );
       }
-    }
-  };
-
-  const signOut = async () => {
-    if (!supabase) return;
-    const revision = sessionRevision.current;
-    setBusy(true);
-    try {
-      const { error } = await supabase.auth.signOut();
-      if (!isCurrentRevision(revision)) return;
-      if (error) setMessage(error.message);
-    } catch (error) {
-      if (isCurrentRevision(revision))
-        setMessage(error instanceof Error ? error.message : 'Could not sign out.');
-    } finally {
-      if (isCurrentRevision(revision)) setBusy(false);
     }
   };
 
@@ -200,32 +181,27 @@ export function SyncCard() {
   const initialised = syncRef.current.hasInitialised();
   const initializationStatus = syncRef.current.getInitializationStatus();
   const guestRecords = profileId === null ? 0 : guestProfileRecordCount();
+  const badge = !session
+    ? { label: 'Local only', tone: 'neutral' as const }
+    : !online
+      ? { label: 'Offline', tone: 'warning' as const }
+      : syncState === 'error'
+        ? { label: 'Error', tone: 'danger' as const }
+        : syncState === 'syncing'
+          ? { label: 'Syncing', tone: 'info' as const }
+          : initialised && syncState === 'synced'
+            ? { label: 'Synced', tone: 'success' as const }
+            : { label: 'Setup required', tone: 'neutral' as const };
   return (
     <Card>
-      <CardHeader
-        title="Cloud sync"
-        badge={
-          <Chip tone={session ? 'success' : 'neutral'}>{session ? 'Connected' : 'Local only'}</Chip>
-        }
-      />
+      <CardHeader title="Cloud sync" badge={<Chip tone={badge.tone}>{badge.label}</Chip>} />
       {!session ? (
-        <form onSubmit={sendMagicLink} className="space-y-3">
+        <div className="space-y-3">
           <p className="text-muted text-sm">
-            Sign in on each device to sync your planner securely. Your data stays available offline.
+            Sign in from the account menu to sync supported planner records. Continue as a guest to
+            keep using this browser without an account.
           </p>
-          <TextField
-            label="Email address"
-            type="email"
-            autoComplete="email"
-            required
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            placeholder="you@example.com"
-          />
-          <button type="submit" className="btn btn--primary" disabled={busy}>
-            <Mail className="h-4 w-4" aria-hidden="true" /> Send sign-in link
-          </button>
-        </form>
+        </div>
       ) : (
         <div className="space-y-3">
           <p className="text-muted text-sm">
@@ -273,14 +249,6 @@ export function SyncCard() {
                 </button>
               </>
             )}
-          <button
-            type="button"
-            className="btn btn--ghost"
-            disabled={busy}
-            onClick={() => void signOut()}
-          >
-            <LogOut className="h-4 w-4" aria-hidden="true" /> Sign out of cloud sync
-          </button>
           {guestRecords > 0 && (
             <div className="border-border bg-sunken rounded-md border p-3">
               <p className="text-muted text-sm">
@@ -300,7 +268,7 @@ export function SyncCard() {
         </div>
       )}
       {message && (
-        <p role="status" className="text-muted mt-3 text-sm">
+        <p role={syncState === 'error' ? 'alert' : 'status'} className="text-muted mt-3 text-sm">
           {message}
         </p>
       )}

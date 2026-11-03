@@ -5,7 +5,7 @@
 
 # StudyDesk
 
-**A local-first study planner. Tasks, deadlines, timetable, calendar, notes and a Pomodoro timer — no account required for local use, no in-app analytics, and optional Supabase cloud sync through passwordless email links.**
+**A local-first study planner. Tasks, deadlines, timetable, calendar, notes and a Pomodoro timer — no account required for local use, no in-app analytics, and optional Supabase cloud sync through Google OAuth or passwordless email links.**
 
 [![Live demo](https://img.shields.io/badge/Live_demo-arun--v--p.github.io-8b7cf8?style=flat-square)](https://arun-v-p.github.io/StudyDesk/)
 [Privacy Policy](https://arun-v-p.github.io/StudyDesk/privacy) · [Terms of Service](https://arun-v-p.github.io/StudyDesk/terms)
@@ -22,9 +22,10 @@
 
 Most study apps want an account, a subscription, or both. StudyDesk works locally without an
 account: it loads instantly and remains available offline after the app shell has been cached.
-Optional passwordless email-link sign-in with Supabase enables cloud sync for supported planner
-records and Study Materials metadata; attachment bytes remain local. Local data stays isolated by
-profile on shared browsers, and guest data is never uploaded automatically.
+Optional Google OAuth or passwordless email-link sign-in with Supabase enables cloud sync for
+supported planner records and Study Materials metadata; attachment bytes remain local. The account
+menu shows the signed-in profile and offers local logout. Local data stays isolated by profile on
+shared browsers, and guest data is never uploaded automatically.
 
 ### Account profiles and optional cloud sync
 
