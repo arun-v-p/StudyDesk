@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { SearchPalette } from '../SearchPalette';
@@ -182,6 +182,14 @@ export function AppShell() {
         <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-7 lg:py-8">
           <Outlet />
         </main>
+        <footer className="border-border mx-auto flex w-full max-w-6xl flex-wrap gap-x-5 gap-y-2 border-t px-4 py-4 text-xs sm:px-7">
+          <NavLink to="/privacy" className="text-muted hover:text-fg underline underline-offset-2">
+            Privacy Policy
+          </NavLink>
+          <NavLink to="/terms" className="text-muted hover:text-fg underline underline-offset-2">
+            Terms of Service
+          </NavLink>
+        </footer>
       </div>
 
       <SearchPalette open={searchOpen} onClose={() => setSearchOpen(false)} />

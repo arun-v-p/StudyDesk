@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { CalendarPage } from '../src/pages/CalendarPage';
 import { DeadlinesPage } from '../src/pages/DeadlinesPage';
 import { SettingsPage } from '../src/pages/SettingsPage';
+import { AccountProfileProvider } from '../src/features/sync/AccountProfile';
 import { dayKey } from '../src/lib/dates';
 import { AppStoreProvider, KEYS } from '../src/store/AppStore';
 import { MATERIALS_KEY } from '../src/store/materials';
@@ -138,13 +139,16 @@ describe('derived data selectors', () => {
     });
   });
 
-  it('shows all nine meaningful counts and a first-run empty state', () => {
+  it('shows all nine meaningful counts and a first-run empty state', async () => {
     render(
-      <AppStoreProvider>
-        <SettingsPage />
-      </AppStoreProvider>,
+      <AccountProfileProvider>
+        <AppStoreProvider>
+          <SettingsPage />
+        </AppStoreProvider>
+      </AccountProfileProvider>,
     );
 
+    await screen.findByText('Active Tasks');
     for (const label of [
       'Active Tasks',
       'Completed Tasks',
@@ -247,7 +251,7 @@ describe('derived data selectors', () => {
 });
 
 describe('Settings count source data', () => {
-  it('counts the same records read from local backup-compatible collection envelopes', () => {
+  it('counts the same records read from local backup-compatible collection envelopes', async () => {
     persistCollection(KEYS.tasks, [{ id: 't1', title: 'Active', completed: false }]);
     persistCollection(KEYS.deadlines, [deadline(), deadline({ id: 'd2', completed: true })]);
     persistCollection(KEYS.timetable, [
@@ -305,11 +309,14 @@ describe('Settings count source data', () => {
     );
 
     render(
-      <AppStoreProvider>
-        <SettingsPage />
-      </AppStoreProvider>,
+      <AccountProfileProvider>
+        <AppStoreProvider>
+          <SettingsPage />
+        </AppStoreProvider>
+      </AccountProfileProvider>,
     );
 
+    await screen.findByText('Active Tasks');
     const expected = {
       'Active Tasks': '1',
       'Completed Tasks': '0',

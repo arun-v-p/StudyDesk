@@ -1,6 +1,11 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createId } from '../lib/id';
-import { storage } from '../lib/safeStorage';
+import {
+  getActiveStorageProfile,
+  storageForProfile,
+  type StorageProfileId,
+} from '../lib/safeStorage';
+import { announceLocalStorageChange, LOCAL_STORAGE_CHANGE } from '../lib/localChanges';
 import type { StudyMaterialFile, StudyMaterialFolder, StudyMaterialSubject } from '../types';
 import { isValidMaterialFile, isValidMaterialFolder, isValidMaterialSubject } from './validators';
 
@@ -25,9 +30,9 @@ export function materialKind(file: File): MaterialKind | null {
   return ext === 'pdf' || ext === 'txt' || ext === 'md' || ext === 'docx' ? ext : null;
 }
 
-function readMetadata(): MaterialsMetadata {
+function readMetadata(profileId: StorageProfileId = getActiveStorageProfile()): MaterialsMetadata {
   try {
-    const raw = storage.getItem(MATERIALS_KEY);
+    const raw = storageForProfile(profileId).getItem(MATERIALS_KEY);
     if (!raw) return EMPTY_MATERIALS;
     const parsed = JSON.parse(raw) as { v?: number; data?: MaterialsMetadata };
     if (parsed.v !== MATERIALS_SCHEMA_VERSION || !parsed.data) return EMPTY_MATERIALS;
@@ -46,28 +51,41 @@ function readMetadata(): MaterialsMetadata {
   }
 }
 
-function writeMetadata(metadata: MaterialsMetadata): boolean {
-  return storage.setItem(
-    MATERIALS_KEY,
-    JSON.stringify({ v: MATERIALS_SCHEMA_VERSION, data: metadata }),
-  );
+function writeMetadata(
+  metadata: MaterialsMetadata,
+  profileId: StorageProfileId = getActiveStorageProfile(),
+): boolean {
+  const value = JSON.stringify({ v: MATERIALS_SCHEMA_VERSION, data: metadata });
+  const profileStorage = storageForProfile(profileId);
+  const ok = profileStorage.setItem(MATERIALS_KEY, value);
+  announceLocalStorageChange({ key: MATERIALS_KEY, value, profileId });
+  return ok;
 }
 
-function openDatabase(): Promise<IDBDatabase> {
+function databaseName(profileId: StorageProfileId): string {
+  return profileId === null ? DB_NAME : `${DB_NAME}.profile.${encodeURIComponent(profileId)}`;
+}
+
+function openDatabase(
+  profileId: StorageProfileId = getActiveStorageProfile(),
+): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     if (!('indexedDB' in window)) {
       reject(new Error('IndexedDB is unavailable in this browser context.'));
       return;
     }
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    const request = indexedDB.open(databaseName(profileId), DB_VERSION);
     request.onupgradeneeded = () => request.result.createObjectStore(BLOB_STORE);
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error ?? new Error('Could not open material storage.'));
   });
 }
 
-function blobRequest<T>(operation: (store: IDBObjectStore) => IDBRequest<T>): Promise<T> {
-  return openDatabase().then(
+function blobRequest<T>(
+  operation: (store: IDBObjectStore) => IDBRequest<T>,
+  profileId: StorageProfileId = getActiveStorageProfile(),
+): Promise<T> {
+  return openDatabase(profileId).then(
     (db) =>
       new Promise<T>((resolve, reject) => {
         const tx = db.transaction(BLOB_STORE, 'readwrite');
@@ -84,34 +102,60 @@ function blobRequest<T>(operation: (store: IDBObjectStore) => IDBRequest<T>): Pr
   );
 }
 
+function materialBlobStore(profileId: StorageProfileId) {
+  return {
+    put: (id: string, blob: Blob) => blobRequest((store) => store.put(blob, id), profileId),
+    get: (id: string) => blobRequest<Blob | undefined>((store) => store.get(id), profileId),
+    delete: (id: string) => blobRequest((store) => store.delete(id), profileId),
+    listIds: () =>
+      blobRequest<IDBValidKey[]>((store) => store.getAllKeys(), profileId).then((keys) =>
+        keys.filter((key): key is string => typeof key === 'string'),
+      ),
+    /** Replace the complete blob store in one IndexedDB transaction. */
+    replaceAll: (entries: Array<{ id: string; blob: Blob }>) =>
+      openDatabase(profileId).then(
+        (db) =>
+          new Promise<void>((resolve, reject) => {
+            const tx = db.transaction(BLOB_STORE, 'readwrite');
+            const store = tx.objectStore(BLOB_STORE);
+            store.clear();
+            for (const entry of entries) store.put(entry.blob, entry.id);
+            tx.oncomplete = () => {
+              db.close();
+              resolve();
+            };
+            tx.onabort = tx.onerror = () => {
+              db.close();
+              reject(tx.error ?? new Error('Material storage operation failed.'));
+            };
+          }),
+      ),
+  };
+}
+
 export const materialBlobs = {
-  put: (id: string, blob: Blob) => blobRequest((store) => store.put(blob, id)),
-  get: (id: string) => blobRequest<Blob | undefined>((store) => store.get(id)),
-  delete: (id: string) => blobRequest((store) => store.delete(id)),
+  put: (id: string, blob: Blob) =>
+    blobRequest((store) => store.put(blob, id), getActiveStorageProfile()),
+  get: (id: string) =>
+    blobRequest<Blob | undefined>((store) => store.get(id), getActiveStorageProfile()),
+  delete: (id: string) => blobRequest((store) => store.delete(id), getActiveStorageProfile()),
   listIds: () =>
-    blobRequest<IDBValidKey[]>((store) => store.getAllKeys()).then((keys) =>
-      keys.filter((key): key is string => typeof key === 'string'),
+    blobRequest<IDBValidKey[]>((store) => store.getAllKeys(), getActiveStorageProfile()).then(
+      (keys) => keys.filter((key): key is string => typeof key === 'string'),
     ),
   /** Replace the complete blob store in one IndexedDB transaction. */
   replaceAll: (entries: Array<{ id: string; blob: Blob }>) =>
-    openDatabase().then(
-      (db) =>
-        new Promise<void>((resolve, reject) => {
-          const tx = db.transaction(BLOB_STORE, 'readwrite');
-          const store = tx.objectStore(BLOB_STORE);
-          store.clear();
-          for (const entry of entries) store.put(entry.blob, entry.id);
-          tx.oncomplete = () => {
-            db.close();
-            resolve();
-          };
-          tx.onabort = tx.onerror = () => {
-            db.close();
-            reject(tx.error ?? new Error('Material storage operation failed.'));
-          };
-        }),
-    ),
+    materialBlobStore(getActiveStorageProfile()).replaceAll(entries),
+  forProfile: (profileId: StorageProfileId) => materialBlobStore(profileId),
 };
+
+export function deleteMaterialDatabase(profileId: StorageProfileId): void {
+  try {
+    globalThis.indexedDB?.deleteDatabase(databaseName(profileId));
+  } catch (error) {
+    console.error('[studydesk] could not clear material storage', error);
+  }
+}
 
 export async function cleanupOrphanMaterialBlobs(metadata = readMetadata()): Promise<number> {
   const referenced = new Set(metadata.files.map((file) => file.blobId));
@@ -127,14 +171,36 @@ export async function cleanupOrphanMaterialBlobs(metadata = readMetadata()): Pro
 }
 
 export function useMaterials() {
-  const [metadata, setMetadata] = useState(readMetadata);
+  const profileId = getActiveStorageProfile();
+  const profileBlobs = useMemo(() => materialBlobs.forProfile(profileId), [profileId]);
+  const [metadata, setMetadata] = useState(() => readMetadata(profileId));
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    void cleanupOrphanMaterialBlobs(metadata).catch((reason: unknown) => {
-      console.error('[studydesk] could not clean material blobs', reason);
-    });
-  }, [metadata]);
+    const referenced = new Set(metadata.files.map((file) => file.blobId));
+    void profileBlobs
+      .listIds()
+      .then(async (ids) => {
+        for (const id of ids) {
+          if (!referenced.has(id)) {
+            await profileBlobs.delete(id);
+          }
+        }
+      })
+      .catch((reason: unknown) => {
+        console.error('[studydesk] could not clean material blobs', reason);
+      });
+  }, [metadata, profileBlobs]);
+
+  useEffect(() => {
+    const onLocalChange = (event: Event) => {
+      const detail = (event as CustomEvent<{ key: string; profileId?: StorageProfileId }>).detail;
+      if (detail?.key === MATERIALS_KEY && detail.profileId === profileId)
+        setMetadata(readMetadata(profileId));
+    };
+    window.addEventListener(LOCAL_STORAGE_CHANGE, onLocalChange);
+    return () => window.removeEventListener(LOCAL_STORAGE_CHANGE, onLocalChange);
+  }, [profileId]);
 
   const addFile = useCallback(
     async (file: File, subjectId: string, folderId: string | null) => {
@@ -158,16 +224,16 @@ export function useMaterials() {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
-      await materialBlobs.put(blobId, file);
+      await profileBlobs.put(blobId, file);
       const next = { ...metadata, files: [...metadata.files, record] };
-      if (!writeMetadata(next)) {
-        await materialBlobs.delete(blobId).catch(() => undefined);
+      if (!writeMetadata(next, profileId)) {
+        await profileBlobs.delete(blobId).catch(() => undefined);
         throw new Error('Material metadata could not be saved. Check browser storage.');
       }
       setMetadata(next);
       return record;
     },
-    [metadata],
+    [metadata, profileBlobs, profileId],
   );
 
   const addSubject = useCallback(
@@ -179,12 +245,12 @@ export function useMaterials() {
         updatedAt: new Date().toISOString(),
       };
       const next = { ...metadata, subjects: [...metadata.subjects, subject] };
-      if (!writeMetadata(next))
+      if (!writeMetadata(next, profileId))
         throw new Error('Subject could not be saved. Check browser storage.');
       setMetadata(next);
       return subject;
     },
-    [metadata],
+    [metadata, profileId],
   );
 
   const addFolder = useCallback(
@@ -199,12 +265,12 @@ export function useMaterials() {
         updatedAt: now,
       };
       const next = { ...metadata, folders: [...metadata.folders, folder] };
-      if (!writeMetadata(next))
+      if (!writeMetadata(next, profileId))
         throw new Error('Folder could not be saved. Check browser storage.');
       setMetadata(next);
       return folder;
     },
-    [metadata],
+    [metadata, profileId],
   );
 
   const renameSubject = useCallback(
@@ -219,10 +285,10 @@ export function useMaterials() {
             : subject,
         ),
       };
-      if (!writeMetadata(next)) throw new Error('Subject could not be renamed.');
+      if (!writeMetadata(next, profileId)) throw new Error('Subject could not be renamed.');
       setMetadata(next);
     },
-    [metadata],
+    [metadata, profileId],
   );
 
   const renameFolder = useCallback(
@@ -237,10 +303,10 @@ export function useMaterials() {
             : folder,
         ),
       };
-      if (!writeMetadata(next)) throw new Error('Folder could not be renamed.');
+      if (!writeMetadata(next, profileId)) throw new Error('Folder could not be renamed.');
       setMetadata(next);
     },
-    [metadata],
+    [metadata, profileId],
   );
 
   const moveFile = useCallback(
@@ -251,10 +317,10 @@ export function useMaterials() {
           file.id === fileId ? { ...file, folderId, updatedAt: new Date().toISOString() } : file,
         ),
       };
-      if (!writeMetadata(next)) throw new Error('Material location could not be saved.');
+      if (!writeMetadata(next, profileId)) throw new Error('Material location could not be saved.');
       setMetadata(next);
     },
-    [metadata],
+    [metadata, profileId],
   );
 
   const moveFolder = useCallback(
@@ -275,10 +341,10 @@ export function useMaterials() {
             : item,
         ),
       };
-      if (!writeMetadata(next)) throw new Error('Folder location could not be saved.');
+      if (!writeMetadata(next, profileId)) throw new Error('Folder location could not be saved.');
       setMetadata(next);
     },
-    [metadata],
+    [metadata, profileId],
   );
 
   const deleteFile = useCallback(
@@ -286,11 +352,11 @@ export function useMaterials() {
       const file = metadata.files.find((item) => item.id === fileId);
       if (!file) return;
       const next = { ...metadata, files: metadata.files.filter((item) => item.id !== fileId) };
-      if (!writeMetadata(next)) throw new Error('Material could not be deleted.');
+      if (!writeMetadata(next, profileId)) throw new Error('Material could not be deleted.');
       setMetadata(next);
-      await materialBlobs.delete(file.blobId);
+      await profileBlobs.delete(file.blobId);
     },
-    [metadata],
+    [metadata, profileBlobs, profileId],
   );
 
   const replaceFile = useCallback(
@@ -301,8 +367,8 @@ export function useMaterials() {
       if (!kind) throw new Error('Supported files are PDF, TXT, Markdown, and DOCX.');
       if (replacement.size > MAX_MATERIAL_SIZE_BYTES)
         throw new Error('This file is larger than the 50 MiB Study Materials limit.');
-      const previousBlob = await materialBlobs.get(current.blobId);
-      await materialBlobs.put(current.blobId, replacement);
+      const previousBlob = await profileBlobs.get(current.blobId);
+      await profileBlobs.put(current.blobId, replacement);
       const next = {
         ...metadata,
         files: metadata.files.map((file) =>
@@ -319,13 +385,13 @@ export function useMaterials() {
             : file,
         ),
       };
-      if (!writeMetadata(next)) {
-        if (previousBlob) await materialBlobs.put(current.blobId, previousBlob);
+      if (!writeMetadata(next, profileId)) {
+        if (previousBlob) await profileBlobs.put(current.blobId, previousBlob);
         throw new Error('Replacement metadata could not be saved.');
       }
       setMetadata(next);
     },
-    [metadata],
+    [metadata, profileBlobs, profileId],
   );
 
   const deleteFolder = useCallback(
@@ -345,11 +411,11 @@ export function useMaterials() {
         folders: metadata.folders.filter((folder) => !ids.has(folder.id)),
         files: metadata.files.filter((file) => !file.folderId || !ids.has(file.folderId)),
       };
-      if (!writeMetadata(next)) throw new Error('Folder could not be deleted.');
+      if (!writeMetadata(next, profileId)) throw new Error('Folder could not be deleted.');
       setMetadata(next);
-      await Promise.all(files.map((file) => materialBlobs.delete(file.blobId)));
+      await Promise.all(files.map((file) => profileBlobs.delete(file.blobId)));
     },
-    [metadata],
+    [metadata, profileBlobs, profileId],
   );
 
   const deleteSubject = useCallback(
@@ -361,11 +427,11 @@ export function useMaterials() {
         folders: metadata.folders.filter((folder) => folder.subjectId !== subjectId),
         files: metadata.files.filter((file) => file.subjectId !== subjectId),
       };
-      if (!writeMetadata(next)) throw new Error('Subject could not be deleted.');
+      if (!writeMetadata(next, profileId)) throw new Error('Subject could not be deleted.');
       setMetadata(next);
-      await Promise.all(files.map((file) => materialBlobs.delete(file.blobId)));
+      await Promise.all(files.map((file) => profileBlobs.delete(file.blobId)));
     },
-    [metadata],
+    [metadata, profileBlobs, profileId],
   );
 
   return {

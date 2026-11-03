@@ -42,5 +42,7 @@ export function titleFor(pathname: string): string {
   const match = NAV_ITEMS.find((i) => (i.end ? pathname === i.path : pathname.startsWith(i.path)));
   if (match) return match.label;
   if (pathname.startsWith('/settings')) return 'Settings';
+  if (pathname.startsWith('/privacy')) return 'Privacy Policy';
+  if (pathname.startsWith('/terms')) return 'Terms of Service';
   return 'StudyDesk';
 }

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { defineConfig } from 'vite';
 import type { Plugin } from 'vite';
@@ -34,6 +34,63 @@ function resolveSiteUrl(): string {
   const [owner, name] = repo.split('/');
   if (!owner || !name) return 'http://localhost:3000/';
   return `https://${owner}.github.io/${name}/`;
+}
+
+function policyRouteEntries(): Plugin {
+  let outputDir = '';
+  const pages = [
+    {
+      path: 'privacy',
+      title: 'StudyDesk | Privacy Policy',
+      description:
+        'StudyDesk Privacy Policy: local-first browser storage, optional Supabase authentication and sync, backups, and deletion limitations.',
+    },
+    {
+      path: 'terms',
+      title: 'StudyDesk | Terms of Service',
+      description:
+        'Terms of Service for StudyDesk, including permitted use, local storage, backups, cloud sync, third-party services, and limitations.',
+    },
+  ];
+
+  return {
+    name: 'studydesk-policy-route-entries',
+    apply: 'build',
+    configResolved(config) {
+      outputDir = resolve(config.root, config.build.outDir);
+    },
+    writeBundle() {
+      const source = readFileSync(resolve(outputDir, 'index.html'), 'utf8');
+      const base = resolveBase();
+      const siteUrl = resolveSiteUrl();
+
+      for (const page of pages) {
+        const canonical = new URL(page.path, siteUrl).href;
+        const html = source
+          .replace('<head>', `<head>\n    <base href="${base}">`)
+          .replace(/<title>[^<]*<\/title>/, `<title>${page.title}</title>`)
+          .replace(
+            /(<link rel="canonical" href=")[^"]*(")/,
+            (_match, prefix, suffix) => `${prefix}${canonical}${suffix}`,
+          )
+          .replace(
+            /(<meta\s+name="description"\s+content=")[^"]*(")/,
+            (_match, prefix, suffix) => `${prefix}${page.description}${suffix}`,
+          )
+          .replace(
+            /(<meta property="og:url" content=")[^"]*(")/,
+            (_match, prefix, suffix) => `${prefix}${canonical}${suffix}`,
+          )
+          .replace(
+            /(<meta property="og:title" content=")[^"]*(")/,
+            (_match, prefix, suffix) => `${prefix}${page.title}${suffix}`,
+          );
+        const pageDir = resolve(outputDir, page.path);
+        mkdirSync(pageDir, { recursive: true });
+        writeFileSync(resolve(pageDir, 'index.html'), html);
+      }
+    },
+  };
 }
 
 function appShellServiceWorker(): Plugin {
@@ -149,7 +206,7 @@ process.env.VITE_SITE_URL = resolveSiteUrl();
 
 export default defineConfig({
   base: resolveBase(),
-  plugins: [react(), tailwindcss(), appShellServiceWorker()],
+  plugins: [react(), tailwindcss(), appShellServiceWorker(), policyRouteEntries()],
   server: { host: '0.0.0.0', port: 3000, strictPort: true },
   build: {
     chunkSizeWarningLimit: 250,
@@ -159,6 +216,8 @@ export default defineConfig({
         manualChunks: {
           react: ['react', 'react-dom', 'react-router-dom'],
           dates: ['date-fns'],
+          // Loaded only by the lazy Settings page; avoid inflating the planner shell.
+          supabase: ['@supabase/supabase-js'],
         },
       },
     },

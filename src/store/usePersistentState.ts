@@ -10,11 +10,28 @@
  *  4. Quota errors were logged to console only — the edit looked saved, then vanished.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { storage } from '../lib/safeStorage';
+import {
+  getActiveStorageProfile,
+  getProfileStorageKey,
+  storageForProfile,
+} from '../lib/safeStorage';
+import { announceLocalStorageChange, LOCAL_STORAGE_CHANGE } from '../lib/localChanges';
 
 export const SCHEMA_VERSION = 2;
 
 export type Migration = (data: unknown) => unknown;
+
+interface InMemoryPersistentValue {
+  value: string;
+  pending: boolean;
+  owner: symbol;
+}
+
+const inMemoryPersistentValues = new Map<string, InMemoryPersistentValue>();
+
+export function getInMemoryPersistentValue(key: string): InMemoryPersistentValue | null {
+  return inMemoryPersistentValues.get(getProfileStorageKey(key)) ?? null;
+}
 
 interface Envelope<T> {
   v: number;
@@ -45,10 +62,11 @@ export function readStorage<T>(
   key: string,
   fallback: T,
   opts: { validateItem?: (v: unknown) => boolean; migrations?: Migration[] } = {},
+  profileStorage = storageForProfile(getActiveStorageProfile()),
 ): { value: T; dropped: number } {
   const { validateItem, migrations = [] } = opts;
   try {
-    const raw = storage.getItem(key);
+    const raw = profileStorage.getItem(key);
     if (raw == null) return { value: fallback, dropped: 0 };
 
     const parsed: unknown = migrate(JSON.parse(raw), migrations);
@@ -86,7 +104,12 @@ export interface PersistentOptions<T> {
 
 export function usePersistentState<T>(opts: PersistentOptions<T>) {
   const { key, fallback, validateItem, migrations = [], debounceMs = 150 } = opts;
+  const profileId = getActiveStorageProfile();
+  const profileStorage = storageForProfile(profileId);
+  const profileStorageKey = getProfileStorageKey(key, profileId);
 
+  const pendingRef = useRef(false);
+  const registryOwner = useRef(Symbol());
   const onErrorRef = useRef(opts.onError);
   onErrorRef.current = opts.onError;
   const migrationsRef = useRef(migrations);
@@ -94,41 +117,113 @@ export function usePersistentState<T>(opts: PersistentOptions<T>) {
   const validateRef = useRef(validateItem);
   validateRef.current = validateItem;
 
-  const [state, setState] = useState<T>(() => {
-    const { value, dropped } = readStorage(key, fallback, { validateItem, migrations });
+  const [state, setStateInternal] = useState<T>(() => {
+    const { value, dropped } = readStorage(
+      key,
+      fallback,
+      { validateItem, migrations },
+      profileStorage,
+    );
     if (dropped > 0) console.warn(`[studydesk] dropped ${dropped} invalid record(s) from "${key}"`);
     return value;
   });
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const persistentValue = JSON.stringify({ v: SCHEMA_VERSION, data: state });
+  inMemoryPersistentValues.set(profileStorageKey, {
+    value: persistentValue,
+    pending: pendingRef.current,
+    owner: registryOwner.current,
+  });
+  const setPersistentState = useCallback<React.Dispatch<React.SetStateAction<T>>>(
+    (action) => {
+      const next =
+        typeof action === 'function' ? (action as (previous: T) => T)(stateRef.current) : action;
+      stateRef.current = next;
+      pendingRef.current = true;
+      inMemoryPersistentValues.set(profileStorageKey, {
+        value: JSON.stringify({ v: SCHEMA_VERSION, data: next }),
+        pending: true,
+        owner: registryOwner.current,
+      });
+      setStateInternal(next);
+    },
+    [profileStorageKey],
+  );
 
   // Debounced write; surfaces quota failures instead of swallowing them.
   useEffect(() => {
     const id = window.setTimeout(() => {
       const envelope: Envelope<T> = { v: SCHEMA_VERSION, data: state };
+      const value = JSON.stringify(envelope);
       // `storage.setItem` never throws; it reports failure so a quota or blocked
       // context surfaces to the user instead of silently losing the write.
-      if (!storage.setItem(key, JSON.stringify(envelope))) {
-        onErrorRef.current?.(new Error(storage.reason ?? 'storage unavailable'));
+      if (!profileStorage.setItem(key, value)) {
+        onErrorRef.current?.(new Error(profileStorage.reason ?? 'storage unavailable'));
+      } else {
+        pendingRef.current = false;
+        inMemoryPersistentValues.set(profileStorageKey, {
+          value,
+          pending: false,
+          owner: registryOwner.current,
+        });
       }
+      announceLocalStorageChange({ key, value, profileId });
     }, debounceMs);
     return () => window.clearTimeout(id);
-  }, [key, state, debounceMs]);
+  }, [key, profileId, profileStorage, profileStorageKey, state, debounceMs]);
 
   // Cross-tab sync.
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
-      if (e.key !== key || e.newValue == null) return;
+      if (e.key !== profileStorageKey || e.newValue == null) return;
       try {
         const next = migrate(JSON.parse(e.newValue), migrationsRef.current) as T;
-        setState(next);
+        stateRef.current = next;
+        setStateInternal(next);
       } catch {
         /* ignore a malformed write from another tab */
       }
     };
     window.addEventListener('storage', onStorage);
     return () => window.removeEventListener('storage', onStorage);
-  }, [key]);
+  }, [key, profileStorageKey]);
 
-  return [state, setState] as const;
+  // Same-document notifications are needed because the native `storage` event
+  // fires only in *other* tabs. Cloud sync writes use this path too.
+  useEffect(() => {
+    const onLocalChange = (event: Event) => {
+      const detail = (
+        event as CustomEvent<{
+          key: string;
+          value: string | null;
+          profileId?: ReturnType<typeof getActiveStorageProfile>;
+        }>
+      ).detail;
+      if (!detail || detail.key !== key || detail.profileId !== profileId || detail.value == null)
+        return;
+      try {
+        const next = migrate(JSON.parse(detail.value), migrationsRef.current) as T;
+        stateRef.current = next;
+        setStateInternal(next);
+      } catch {
+        /* Ignore malformed local writes just as we do cross-tab writes. */
+      }
+    };
+    window.addEventListener(LOCAL_STORAGE_CHANGE, onLocalChange);
+    return () => window.removeEventListener(LOCAL_STORAGE_CHANGE, onLocalChange);
+  }, [key, profileId]);
+
+  useEffect(
+    () => () => {
+      if (inMemoryPersistentValues.get(profileStorageKey)?.owner === registryOwner.current) {
+        inMemoryPersistentValues.delete(profileStorageKey);
+      }
+    },
+    [profileStorageKey],
+  );
+
+  return [state, setPersistentState] as const;
 }
 
 export function useCollection<Item extends { id: string }>(

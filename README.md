@@ -5,12 +5,13 @@
 
 # StudyDesk
 
-**A local-first study planner. Tasks, deadlines, timetable, calendar, notes and a Pomodoro timer — no account, no server, no tracking.**
+**A local-first study planner. Tasks, deadlines, timetable, calendar, notes and a Pomodoro timer — no account required for local use, no in-app analytics, and optional Supabase cloud sync through passwordless email links.**
 
 [![Live demo](https://img.shields.io/badge/Live_demo-arun--v--p.github.io-8b7cf8?style=flat-square)](https://arun-v-p.github.io/StudyDesk/)
+[Privacy Policy](https://arun-v-p.github.io/StudyDesk/privacy) · [Terms of Service](https://arun-v-p.github.io/StudyDesk/terms)
 [![CI](https://img.shields.io/badge/CI-passing-5cc39a?style=flat-square)](./.github/workflows/deploy.yml)
-[![Tests](https://img.shields.io/badge/tests-80_passing-5cc39a?style=flat-square)](./tests)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.7_strict-3178c6?style=flat-square&logo=typescript&logoColor=white)](./tsconfig.json)
+[![Tests](https://img.shields.io/badge/tests-automated-5cc39a?style=flat-square)](./tests)
+[![TypeScript](https://img.shields.io/badge/TypeScript-6.0_strict-3178c6?style=flat-square&logo=typescript&logoColor=white)](./tsconfig.json)
 [![WCAG](https://img.shields.io/badge/WCAG_2.2-AA-8b7cf8?style=flat-square)](#accessibility)
 
 </div>
@@ -19,9 +20,25 @@
 
 ## Why StudyDesk
 
-Most study apps want an account, a subscription, or both. StudyDesk keeps everything in your
-browser's local storage: it loads instantly, works offline, and your data never leaves your
-machine. What it trades away is sync between devices — [export and import](#data) is the bridge.
+Most study apps want an account, a subscription, or both. StudyDesk works locally without an
+account: it loads instantly and remains available offline after the app shell has been cached.
+Optional passwordless email-link sign-in with Supabase enables cloud sync for supported planner
+records and Study Materials metadata; attachment bytes remain local. Local data stays isolated by
+profile on shared browsers, and guest data is never uploaded automatically.
+
+### Account profiles and optional cloud sync
+
+The original unscoped browser data remains the **guest profile**. Each signed-in Supabase user gets
+a separate LocalStorage and IndexedDB profile on that browser. Signing out or changing accounts
+switches profiles without moving or deleting data. Guest records can be merged into a signed-in
+profile only through the explicit confirmation in Settings; existing account records win ID
+conflicts, and the guest copy remains intact.
+
+Cloud sync transfers supported planner records and Study Materials metadata, but not material
+attachment contents. Attachments remain in each browser's profile and can be moved through complete
+ZIP backups. Backup, restore, and clear-data actions apply only to the active profile. **Clear all
+data does not guarantee removal of every local item or the persisted Supabase session, and it does
+not delete cloud records.**
 
 ## Features
 
@@ -145,7 +162,7 @@ Requires Node.js 20.19+ or 22.12+.
 ```
 src/
 ├─ main.tsx                     # StrictMode, legacy-key migration, theme bootstrap
-├─ App.tsx                      # HashRouter + lazy routes + per-route ErrorBoundary
+├─ App.tsx                      # BrowserRouter + lazy routes + per-route ErrorBoundary
 ├─ theme.css                    # design tokens: colour, type, radius, elevation, motion
 ├─ types.ts                     # domain model
 ├─ lib/
@@ -225,8 +242,8 @@ repo is renamed or moved to a custom domain — override with `VITE_SITE_URL` in
 
 ## Tests
 
-117 tests across 18 files. They are written as **regression tests for specific defects**, so the
-comments name what each one prevents:
+The automated suite covers regression scenarios across persistence, cloud sync, backups, planning,
+imports, and routing. Representative coverage includes:
 
 - `timetableLayout.test.ts` — half-hour starts, multi-hour spans, overlap lanes never colliding, unrenderable entries reported rather than hidden
 - `status.test.ts` — time-aware overdue detection, same-day ordering by time, local day keys across a UTC boundary
@@ -234,9 +251,10 @@ comments name what each one prevents:
 - `legacyMigration.test.ts` — idempotent, non-clobbering, retryable
 - `ics.test.ts` / `icsTransfer.test.tsx` — supported calendar constructs, escaping/folding, skipped rules, preview and non-overwriting import
 - `semesterTemplates.test.ts` / `semesterTemplatesPage.test.tsx` — snapshots, duplicate names, selective application, edits that leave templates unchanged
+- `cloudSync.test.ts` / `accountProfiles.test.tsx` — cloud synchronization, account isolation, and profile behavior
 - `backup.test.tsx` — round-trips imported events and semester templates
 - `seed.test.ts` — sample data stays valid and current
-- `app.test.tsx` — routing, `aria-current`, first-run empty state, and two invariants: **no unnamed icon button** and **no `focus:outline-none`**
+- `app.test.tsx` — routing, policy links and content, `aria-current`, first-run empty state, and two invariants: **no unnamed icon button** and **no `focus:outline-none`**
 
 ## Tech debt
 
