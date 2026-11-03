@@ -77,6 +77,7 @@ interface OutboxLoadResult {
 }
 
 export type InitializationStatus = 'pending' | 'uploading' | 'downloading' | 'complete';
+export type CloudSyncState = 'idle' | 'syncing' | 'synced' | 'error';
 
 interface InitialRecord {
   scope: Scope;
@@ -140,9 +141,14 @@ export class CloudSync {
   private flushFlight: { generation: number; promise: Promise<void> } | null = null;
   private recoveryMessage: string | null = null;
   private onStatus: (status: string | null) => void;
+  private onSyncState: (state: CloudSyncState) => void;
 
-  constructor(onStatus: (status: string | null) => void) {
+  constructor(
+    onStatus: (status: string | null) => void,
+    onSyncState: (state: CloudSyncState) => void = () => undefined,
+  ) {
     this.onStatus = onStatus;
+    this.onSyncState = onSyncState;
   }
 
   async start(user: User): Promise<{
@@ -158,6 +164,7 @@ export class CloudSync {
     this.stop();
     const generation = this.sessionGeneration;
     this.user = user;
+    this.onSyncState('syncing');
     this.shadow = this.loadShadow(user.id);
     const outbox = this.loadOutbox(user.id);
     this.pending = outbox.records;
@@ -199,13 +206,20 @@ export class CloudSync {
     window.addEventListener(LOCAL_STORAGE_CHANGE, this.onLocalChange as EventListener);
     window.addEventListener('online', this.onOnline);
     if (this.hasInitialised()) {
-      void this.flush().catch((error: unknown) => {
-        if (this.isCurrentSession(generation, user.id)) {
-          this.onStatus(
-            error instanceof Error ? error.message : 'Waiting for a connection to sync changes.',
-          );
-        }
-      });
+      void this.flush()
+        .then(() => {
+          if (this.isCurrentSession(generation, user.id)) this.onSyncState('synced');
+        })
+        .catch((error: unknown) => {
+          if (this.isCurrentSession(generation, user.id)) {
+            this.onSyncState('error');
+            this.onStatus(
+              error instanceof Error ? error.message : 'Waiting for a connection to sync changes.',
+            );
+          }
+        });
+    } else {
+      this.onSyncState('idle');
     }
     return {
       remoteCount: data?.length ?? 0,
@@ -387,8 +401,12 @@ export class CloudSync {
     )
       return;
     if (this.suppress.delete(descriptor.key)) return;
+    const userId = this.user.id;
+    const generation = this.sessionGeneration;
     void this.syncDocument(descriptor, detail.value).catch((error: unknown) => {
+      if (!this.isCurrentSession(generation, userId)) return;
       console.error('[studydesk] cloud sync failed', error);
+      this.onSyncState('error');
       this.onStatus(
         error instanceof Error ? error.message : 'Sync failed; changes remain on this device.',
       );
@@ -397,14 +415,26 @@ export class CloudSync {
 
   private onOnline = (): void => {
     if (!this.hasInitialised()) return;
-    void this.flush().catch((error: unknown) => {
-      this.onStatus(
-        error instanceof Error ? error.message : 'Waiting for a connection to sync changes.',
-      );
-    });
+    const userId = this.user?.id;
+    const generation = this.sessionGeneration;
+    if (!userId) return;
+    this.onSyncState('syncing');
+    void this.flush()
+      .then(() => {
+        if (this.isCurrentSession(generation, userId)) this.onSyncState('synced');
+      })
+      .catch((error: unknown) => {
+        if (!this.isCurrentSession(generation, userId)) return;
+        this.onSyncState('error');
+        this.onStatus(
+          error instanceof Error ? error.message : 'Waiting for a connection to sync changes.',
+        );
+      });
   };
 
   private async syncDocument(descriptor: Descriptor, raw: string | null): Promise<void> {
+    const userId = this.user?.id;
+    const generation = this.sessionGeneration;
     const document = parseDocument(raw, descriptor.array);
     const current = new Map<string, unknown>();
     if (descriptor.array && Array.isArray(document)) {
@@ -434,8 +464,11 @@ export class CloudSync {
       }
     }
     this.saveShadow();
+    this.onSyncState('syncing');
     await this.flush();
+    if (!userId || !this.isCurrentSession(generation, userId)) return;
     this.onStatus(null);
+    this.onSyncState('synced');
   }
 
   private enqueue(

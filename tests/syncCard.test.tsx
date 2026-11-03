@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   resolveGetSession: null as
     ((result: { data: { session: Session | null }; error: null }) => void) | null,
   startedUsers: [] as string[],
+  syncStateCallback: null as ((state: string) => void) | null,
 }));
 
 vi.mock('../src/lib/supabase', () => ({
@@ -36,10 +37,14 @@ vi.mock('../src/lib/supabase', () => ({
 
 vi.mock('../src/features/sync/cloudSync', () => ({
   CloudSync: class {
-    constructor(_onStatus: (status: string | null) => void) {}
+    constructor(_onStatus: (status: string | null) => void, onSyncState?: (state: string) => void) {
+      mocks.syncStateCallback = onSyncState ?? null;
+    }
 
     start = vi.fn(async (user: { id: string }) => {
       mocks.startedUsers.push(user.id);
+      mocks.syncStateCallback?.('syncing');
+      mocks.syncStateCallback?.('synced');
       return {
         remoteCount: 0,
         localCount: 0,
@@ -64,6 +69,8 @@ describe('SyncCard authentication startup', () => {
     mocks.sessionOnSubscribe = null;
     mocks.resolveGetSession = null;
     mocks.startedUsers.splice(0);
+    mocks.syncStateCallback = null;
+    Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
     setActiveStorageProfile(null);
   });
 
@@ -112,6 +119,35 @@ describe('SyncCard authentication startup', () => {
     expect(screen.getByText('active@example.com')).toBeInTheDocument();
     expect(screen.queryByText('previous@example.com')).not.toBeInTheDocument();
     expect(mocks.startedUsers).toEqual(['active-account']);
+  });
+
+  it('shows syncing, synced, offline, and error states for an authenticated profile', async () => {
+    render(
+      <AccountProfileProvider>
+        <SyncCard />
+      </AccountProfileProvider>,
+    );
+    await act(async () => {
+      mocks.authCallback?.('SIGNED_IN', session('account-a', 'account-a@example.com'));
+    });
+
+    expect(await screen.findByText('Synced')).toBeInTheDocument();
+    await act(async () => {
+      mocks.syncStateCallback?.('syncing');
+    });
+    expect(screen.getByText('Syncing')).toBeInTheDocument();
+    await act(async () => {
+      mocks.syncStateCallback?.('synced');
+      Object.defineProperty(navigator, 'onLine', { configurable: true, value: false });
+      window.dispatchEvent(new Event('offline'));
+    });
+    expect(screen.getByText('Offline')).toBeInTheDocument();
+    await act(async () => {
+      Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
+      window.dispatchEvent(new Event('online'));
+      mocks.syncStateCallback?.('error');
+    });
+    expect(screen.getByText('Error')).toBeInTheDocument();
   });
 
   // Prevent signing in from automatically importing guest data or merging it without the user's confirmation.

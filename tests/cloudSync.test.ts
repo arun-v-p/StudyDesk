@@ -2,6 +2,7 @@ import { act, renderHook } from '@testing-library/react';
 import type { User } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CloudSync } from '../src/features/sync/cloudSync';
+import type { CloudSyncState } from '../src/features/sync/cloudSync';
 import { KEYS } from '../src/store/AppStore';
 import { setActiveStorageProfile, storage, storageForProfile } from '../src/lib/safeStorage';
 import { announceLocalStorageChange, LOCAL_STORAGE_CHANGE } from '../src/lib/localChanges';
@@ -139,6 +140,18 @@ beforeEach(() => {
 });
 
 describe('CloudSync initialization recovery', () => {
+  it('reports startup and settled synchronization states', async () => {
+    initialized();
+    const states: CloudSyncState[] = [];
+    const sync = new CloudSync(vi.fn(), (state) => states.push(state));
+
+    await sync.start(user);
+    await vi.waitFor(() => expect(states).toContain('synced'));
+
+    expect(states[0]).toBe('syncing');
+    sync.stop();
+  });
+
   // Prevent a delayed write notification from Account A from being uploaded by Account B's active sync session.
   it('ignores local-change events belonging to another profile', async () => {
     initialized('account-b');
@@ -567,13 +580,15 @@ describe('CloudSync outbox and session safety', () => {
       ]),
     );
     const onStatus = vi.fn();
+    const onSyncState = vi.fn();
     mocks.rpc.mockResolvedValue({ data: null, error: null });
 
-    const sync = new CloudSync(onStatus);
+    const sync = new CloudSync(onStatus, onSyncState);
     await sync.start(user);
     await vi.waitFor(() =>
       expect(onStatus).toHaveBeenCalledWith(expect.stringContaining('server did not confirm')),
     );
+    expect(onSyncState).toHaveBeenCalledWith('error');
     expect(
       JSON.parse(localStorage.getItem(`studydesk.sync.outbox.${user.id}`) ?? '[]'),
     ).toHaveLength(1);

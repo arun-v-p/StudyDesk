@@ -52,6 +52,11 @@ describe('App shell', () => {
       ),
     ).toBeVisible();
     expect(window.location.pathname).toBe('/privacy');
+    expect(
+      screen.getByText(
+        /offers passwordless email sign-in links and Google OAuth through Supabase/i,
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText(/does not implement email\/password sign-in/i)).toBeInTheDocument();
     expect(screen.getByText(/no user-facing account deletion/i)).toBeInTheDocument();
     expect(screen.getByText(/does not sign you out or clear Supabase/i)).toBeInTheDocument();

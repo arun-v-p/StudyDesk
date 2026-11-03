@@ -90,16 +90,17 @@ export function PrivacyPolicyPage() {
 
       <PolicySection title="Authentication and information sent to Supabase">
         <p>
-          The current sign-in screen requests a passwordless email sign-in link through Supabase.
-          The repository does not implement email/password sign-in, a password-reset flow, or Google
-          OAuth. If you request a link, your email address is sent to Supabase Authentication and
-          Supabase may send an email according to the project&apos;s dashboard configuration.
+          The current sign-in screen offers passwordless email sign-in links and Google OAuth
+          through Supabase. Email sign-in sends your email address to Supabase Authentication, which
+          may send an email according to the project&apos;s dashboard configuration. Google sign-in
+          redirects you to Google for authentication and returns through Supabase.
         </p>
         <p>
           The client is configured to persist and refresh the Supabase session and to detect an
           authentication callback in the URL. Authentication account creation, email confirmation,
-          email content and delivery, and allowed redirect URLs depend on Supabase project settings
-          that are not verifiable from this repository.
+          email content and delivery, OAuth credentials, and allowed redirect URLs depend on
+          provider and Supabase project settings that are not verifiable from this repository.
+          StudyDesk does not implement email/password sign-in or a password-reset flow.
         </p>
       </PolicySection>
 
@@ -183,8 +184,8 @@ export function PrivacyPolicyPage() {
         <p>
           The repository contains no analytics, advertising, or tracking SDK integration. That
           describes the code reviewed for this notice; it is not a statement about provider or
-          hosting logs, or configuration outside the repository. StudyDesk does not implement Google
-          sign-in.
+          hosting logs, or configuration outside the repository. Google is also used as an
+          authentication provider when you choose Google sign-in.
         </p>
       </PolicySection>
       <PolicySection title="Contact">
@@ -242,10 +243,10 @@ export function TermsOfServicePage() {
       <PolicySection title="Accounts and authentication">
         <p>
           StudyDesk can be used locally without an account. Where optional Supabase sync is
-          configured, the current application offers passwordless email sign-in links. It does not
-          currently provide email/password sign-in, password reset, or Google OAuth. You must have
-          access to the email address used to sign in and must use the service only for your own
-          authorized account.
+          configured, the current application offers passwordless email sign-in links and Google
+          OAuth through Supabase. It does not provide email/password sign-in or password reset. You
+          must use only an account you are authorized to access and protect access to its email or
+          Google account.
         </p>
         <p>
           Sign-out switches away from the authenticated local profile but does not delete local
@@ -286,9 +287,10 @@ export function TermsOfServicePage() {
       <PolicySection title="Third-party services">
         <p>
           GitHub Pages hosts the application. Supabase provides optional authentication, database,
-          and realtime synchronization. Their services are subject to their own terms, policies, and
-          availability. StudyDesk does not control third-party services or external sites you choose
-          to open from your records.
+          and realtime synchronization; Google provides authentication when you choose Google
+          sign-in. These services are subject to their own terms, policies, and availability.
+          StudyDesk does not control third-party services or external sites you choose to open from
+          your records.
         </p>
       </PolicySection>
 
