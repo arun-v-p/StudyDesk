@@ -15,9 +15,9 @@ const MODE_WORD: Record<Settings['theme'], string> = {
 };
 
 function ThemeIcon({ theme }: { theme: Settings['theme'] }) {
-  if (theme === 'dark') return <Moon className="h-[17px] w-[17px]" aria-hidden="true" />;
-  if (theme === 'light') return <Sun className="h-[17px] w-[17px]" aria-hidden="true" />;
-  return <Monitor className="h-[17px] w-[17px]" aria-hidden="true" />;
+  if (theme === 'dark') return <Moon className="size-4.25" aria-hidden="true" />;
+  if (theme === 'light') return <Sun className="size-4.25" aria-hidden="true" />;
+  return <Monitor className="size-4.25" aria-hidden="true" />;
 }
 
 export function Topbar({

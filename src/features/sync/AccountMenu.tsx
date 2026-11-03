@@ -207,7 +207,7 @@ export function AccountMenu() {
       ) : (
         <button
           type="button"
-          className="btn btn--primary !min-h-9 !px-3 !py-1.5 !text-xs"
+          className="btn btn--primary min-h-9! px-3! py-1.5! text-xs!"
           onClick={openSignIn}
         >
           <UserRound className="h-4 w-4" aria-hidden="true" /> Sign in
