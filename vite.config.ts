@@ -159,6 +159,8 @@ export default defineConfig({
         manualChunks: {
           react: ['react', 'react-dom', 'react-router-dom'],
           dates: ['date-fns'],
+          // Loaded only by the lazy Settings page; avoid inflating the planner shell.
+          supabase: ['@supabase/supabase-js'],
         },
       },
     },

@@ -5,7 +5,7 @@
 
 # StudyDesk
 
-**A local-first study planner. Tasks, deadlines, timetable, calendar, notes and a Pomodoro timer — no account, no server, no tracking.**
+**A local-first study planner. Tasks, deadlines, timetable, calendar, notes and a Pomodoro timer — no account required, no tracking, and optional secure cloud sync.**
 
 [![Live demo](https://img.shields.io/badge/Live_demo-arun--v--p.github.io-8b7cf8?style=flat-square)](https://arun-v-p.github.io/StudyDesk/)
 [![CI](https://img.shields.io/badge/CI-passing-5cc39a?style=flat-square)](./.github/workflows/deploy.yml)
@@ -19,9 +19,22 @@
 
 ## Why StudyDesk
 
-Most study apps want an account, a subscription, or both. StudyDesk keeps everything in your
-browser's local storage: it loads instantly, works offline, and your data never leaves your
-machine. What it trades away is sync between devices — [export and import](#data) is the bridge.
+Most study apps want an account, a subscription, or both. StudyDesk works locally without an
+account: it loads instantly and remains available offline. Optional Supabase sign-in enables sync
+for supported planner records. Local data stays isolated by profile on shared browsers, and guest
+data is never uploaded automatically.
+
+### Account profiles and optional cloud sync
+
+The original unscoped browser data remains the **guest profile**. Each signed-in Supabase user gets
+a separate LocalStorage and IndexedDB profile on that browser. Signing out or changing accounts
+switches profiles without moving or deleting data. Guest records can be merged into a signed-in
+profile only through the explicit confirmation in Settings; existing account records win ID
+conflicts, and the guest copy remains intact.
+
+Cloud sync transfers planner records and Study Materials metadata, but not material attachment
+contents. Attachments remain in each browser's profile and can be moved through complete ZIP
+backups. Backup, restore, and clear-data actions apply only to the active profile.
 
 ## Features
 

@@ -103,9 +103,22 @@ old copies themselves once they are satisfied. Eight tests cover this path.
 > If you are handing this to a client as a **new** deployment on a different
 > origin, none of this fires — there is no legacy data to find.
 
+## 4. Local account profiles
+
+The existing unscoped StudyDesk data remains the guest profile. When Supabase is configured, the
+app resolves the current session before rendering profile data and stores each authenticated
+user's LocalStorage records and IndexedDB material attachments separately. The legacy flat-key
+migration above intentionally runs against the guest profile only; signing in does not migrate,
+copy, or upload guest data.
+
+Users may explicitly confirm a guest-data merge from Settings. The merge retains guest data and
+preserves account records on ID conflicts. Backups, restores, and clear-data operations are limited
+to the currently active profile. Cloud sync includes planner records and material metadata, but
+attachment bytes remain local and should be transferred with a complete ZIP backup.
+
 ---
 
-## 4. Placeholder audit
+## 5. Placeholder audit
 
 You asked for no placeholders. Verified by grep across `src/`:
 
@@ -135,7 +148,7 @@ These are assets, not code, and cannot be generated honestly for you:
 
 ---
 
-## 5. Pre-handoff checklist
+## 6. Pre-handoff checklist
 
 Run these before you call it delivered.
 

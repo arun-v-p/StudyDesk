@@ -1,4 +1,5 @@
 import { MATERIALS_KEY, materialBlobs, MAX_MATERIAL_SIZE_BYTES } from './materials';
+import { getActiveStorageProfile, type StorageProfileId } from '../lib/safeStorage';
 
 export const ARCHIVE_VERSION = 1;
 export const MAX_ARCHIVE_BYTES = 512 * 1024 * 1024;
@@ -177,6 +178,7 @@ export async function createArchive(
   data: Record<string, unknown>,
   appVersion: string | undefined,
   onProgress?: (p: ArchiveProgress) => void,
+  profileId: StorageProfileId = getActiveStorageProfile(),
 ) {
   emit(onProgress, { phase: 'preparing', completed: 0, total: 0, message: 'Preparing backup…' });
   const ids = attachmentIds(data),
@@ -189,7 +191,7 @@ export async function createArchive(
       total: ids.length,
       message: `Reading attachment ${i + 1} of ${ids.length}…`,
     });
-    const blob = await materialBlobs.get(ids[i]!);
+    const blob = await materialBlobs.forProfile(profileId).get(ids[i]!);
     if (!blob)
       throw new Error(
         `An attachment is missing from this browser. Restore or remove it before exporting.`,

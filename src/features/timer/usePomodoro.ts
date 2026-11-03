@@ -26,6 +26,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { storage } from '../../lib/safeStorage';
+import { announceLocalStorageChange } from '../../lib/localChanges';
 
 export type TimerMode = 'focus' | 'shortBreak' | 'longBreak';
 
@@ -100,9 +101,11 @@ export function usePomodoro({ onComplete, durations }: UsePomodoroOptions = {}) 
 
   /* --- persist stats --- */
   useEffect(() => {
-    if (!storage.setItem(TIMER_STORAGE_KEY, JSON.stringify(stats))) {
+    const value = JSON.stringify(stats);
+    if (!storage.setItem(TIMER_STORAGE_KEY, value)) {
       console.warn('[studydesk] timer stats not persisted:', storage.reason);
     }
+    announceLocalStorageChange({ key: TIMER_STORAGE_KEY, value });
   }, [stats]);
 
   /* --- single interval, only while running --- */

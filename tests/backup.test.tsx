@@ -4,18 +4,22 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { SettingsPage } from '../src/pages/SettingsPage';
 import { AppStoreProvider, KEYS } from '../src/store/AppStore';
+import { AccountProfileProvider } from '../src/features/sync/AccountProfile';
 import {
   clearAllData,
   exportBackup,
+  importGuestProfileIntoActive,
   importBackup,
   restoreSnapshot,
   type Backup,
 } from '../src/store/backup';
 import { EXAM_TIMETABLE_KEY } from '../src/store/examTimetable';
-import { MATERIALS_KEY } from '../src/store/materials';
+import { MATERIALS_KEY, materialBlobs } from '../src/store/materials';
 import { TIMER_STORAGE_KEY } from '../src/features/timer/usePomodoro';
+import { setActiveStorageProfile, storageForProfile } from '../src/lib/safeStorage';
 
 afterEach(() => {
+  setActiveStorageProfile(null);
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
@@ -33,6 +37,89 @@ function backupFile(data: Record<string, unknown>): File {
 }
 
 describe('backup data integrity', () => {
+  // Prevent a signed-in account's export and clear-data actions from reading or deleting another profile.
+  it('exports and clears only the active account profile', () => {
+    storageForProfile('account-a').setItem(
+      KEYS.tasks,
+      JSON.stringify({ v: 2, data: [{ id: 'a' }] }),
+    );
+    storageForProfile('account-b').setItem(
+      KEYS.tasks,
+      JSON.stringify({ v: 2, data: [{ id: 'b' }] }),
+    );
+    setActiveStorageProfile('account-b');
+
+    expect(exportBackup().data[KEYS.tasks]).toEqual({ v: 2, data: [{ id: 'b' }] });
+    clearAllData();
+
+    expect(storageForProfile('account-b').getItem(KEYS.tasks)).toBeNull();
+    expect(storageForProfile('account-a').getItem(KEYS.tasks)).toContain('"id":"a"');
+  });
+
+  // Prevent guest data from being uploaded implicitly or overwriting account records during explicit import.
+  it('merges guest records only after explicit import while preserving both profiles and copying attachments', async () => {
+    const guestStorage = storageForProfile(null);
+    const accountStorage = storageForProfile('account-a');
+    guestStorage.setItem(
+      KEYS.tasks,
+      JSON.stringify({ v: 2, data: [{ id: 'collision', title: 'Guest' }, { id: 'guest-only' }] }),
+    );
+    accountStorage.setItem(
+      KEYS.tasks,
+      JSON.stringify({ v: 2, data: [{ id: 'collision', title: 'Account' }] }),
+    );
+    const guestMaterials = {
+      v: 1,
+      data: {
+        subjects: [],
+        folders: [],
+        files: [{ id: 'guest-file', blobId: 'guest-blob', name: 'handout.txt' }],
+      },
+    };
+    guestStorage.setItem(MATERIALS_KEY, JSON.stringify(guestMaterials));
+
+    const copied = new Map<string, Blob>();
+    const guestBlobs = {
+      put: vi.fn(async (id: string) => id),
+      get: vi.fn(async (id: string) => (id === 'guest-blob' ? new Blob(['handout']) : undefined)),
+      delete: vi.fn(async () => undefined as undefined),
+      listIds: vi.fn(async () => ['guest-blob']),
+      replaceAll: vi.fn(async () => undefined),
+    };
+    const accountBlobs = {
+      put: vi.fn(async (id: string, blob: Blob) => {
+        copied.set(id, blob);
+        return id;
+      }),
+      get: vi.fn(async (id: string) => copied.get(id)),
+      delete: vi.fn(async (id: string) => {
+        copied.delete(id);
+        return undefined;
+      }),
+      listIds: vi.fn(async () => [...copied.keys()]),
+      replaceAll: vi.fn(async () => undefined),
+    };
+    const forProfile = vi
+      .spyOn(materialBlobs, 'forProfile')
+      .mockImplementation((profileId) => (profileId === null ? guestBlobs : accountBlobs));
+    setActiveStorageProfile('account-a');
+
+    const result = await importGuestProfileIntoActive();
+
+    const mergedTasks = JSON.parse(accountStorage.getItem(KEYS.tasks)!).data;
+    expect(mergedTasks).toEqual([{ id: 'collision', title: 'Account' }, { id: 'guest-only' }]);
+    const mergedMaterials = JSON.parse(accountStorage.getItem(MATERIALS_KEY)!);
+    expect(mergedMaterials.data.files).toHaveLength(1);
+    expect(mergedMaterials.data.files[0].id).toBe('guest-file');
+    expect(mergedMaterials.data.files[0].blobId).not.toBe('guest-blob');
+    expect(copied.get(mergedMaterials.data.files[0].blobId)).toBeInstanceOf(Blob);
+    expect(JSON.parse(guestStorage.getItem(KEYS.tasks)!).data[0].title).toBe('Guest');
+    expect(JSON.parse(guestStorage.getItem(MATERIALS_KEY)!)).toEqual(guestMaterials);
+    expect(forProfile).toHaveBeenCalledWith(null);
+    expect(forProfile).toHaveBeenCalledWith('account-a');
+    expect(result.attachments).toBe(1);
+  });
+
   it('round-trips all backup keys and clears all namespaced data', async () => {
     // Exams, material metadata and timer stats were omitted; clear-all also left feature flags behind.
     const expected: Record<string, unknown> = {
@@ -188,12 +275,14 @@ describe('backup data integrity', () => {
     const user = userEvent.setup();
     render(
       <MemoryRouter>
-        <AppStoreProvider>
-          <SettingsPage />
-        </AppStoreProvider>
+        <AccountProfileProvider>
+          <AppStoreProvider>
+            <SettingsPage />
+          </AppStoreProvider>
+        </AccountProfileProvider>
       </MemoryRouter>,
     );
-    await user.click(screen.getByRole('button', { name: /Import backup/i }));
+    await user.click(await screen.findByRole('button', { name: /Import backup/i }));
     await user.click(screen.getByRole('button', { name: /Choose backup and replace data/i }));
     if (!fileInput) throw new Error('Backup file picker was not opened.');
     const file = backupFile({ [MATERIALS_KEY]: newMetadata });

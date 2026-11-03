@@ -7,6 +7,7 @@ import { ShellBoot } from './components/ShellBoot';
 import { useTheme } from './hooks/useTheme';
 import { useStore } from './store/AppStore';
 import { TodayPage } from './pages/TodayPage';
+import { AccountProfileProvider, useAccountProfile } from './features/sync/AccountProfile';
 
 /**
  * Route-level code splitting. The original shipped one 214 kB chunk; every page
@@ -63,7 +64,16 @@ const Router = hasUsableLocation() ? HashRouter : MemoryRouter;
 
 export default function App() {
   return (
-    <AppStoreProvider>
+    <AccountProfileProvider>
+      <ProfiledApp />
+    </AccountProfileProvider>
+  );
+}
+
+function ProfiledApp() {
+  const { profileId } = useAccountProfile();
+  return (
+    <AppStoreProvider key={profileId ?? 'guest'}>
       <ThemedApp />
     </AppStoreProvider>
   );

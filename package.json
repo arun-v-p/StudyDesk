@@ -29,6 +29,7 @@
     "verify:preview": "node scripts/verify-preview.mjs preview-dist/index.html"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.118.0",
     "date-fns": "^4.1.0",
     "lucide-react": "^1.47.0",
     "react": "^18.3.1",

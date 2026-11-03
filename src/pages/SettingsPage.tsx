@@ -13,10 +13,12 @@ import {
 } from '../store/backup';
 import { loadSampleTerm, isFirstRun } from '../store/seed';
 import { purgeLegacyKeys } from '../store/legacyMigration';
-import { storage } from '../lib/safeStorage';
+import { storageForProfile } from '../lib/safeStorage';
 import { useExamTimetable } from '../store/examTimetable';
 import { useMaterials } from '../store/materials';
 import { selectDataCounts } from '../store/selectors';
+import { SyncCard } from '../features/sync/SyncCard';
+import { useAccountProfile } from '../features/sync/AccountProfile';
 
 const IMPORT_TOAST_DURATION = 8000;
 
@@ -27,6 +29,7 @@ const IMPORT_TOAST_DURATION = 8000;
 export function SettingsPage() {
   const { settings, updateSettings, toast, tasks, deadlines, timetable, notes, planner } =
     useStore();
+  const { profileId } = useAccountProfile();
   const exams = useExamTimetable();
   const materials = useMaterials();
   const [name, setName] = useState(settings.displayName);
@@ -131,7 +134,9 @@ export function SettingsPage() {
     <div className="mx-auto max-w-2xl space-y-5">
       <div>
         <h2 className="text-fg text-xl font-bold tracking-tight">Settings</h2>
-        <p className="text-subtle mt-0.5 text-sm">Everything is stored in this browser only.</p>
+        <p className="text-subtle mt-0.5 text-sm">
+          This local profile is stored in this browser; supported records sync only when enabled.
+        </p>
       </div>
 
       <Card>
@@ -146,6 +151,8 @@ export function SettingsPage() {
           autoComplete="name"
         />
       </Card>
+
+      <SyncCard />
 
       <Card>
         <CardHeader title="Appearance" />
@@ -193,9 +200,10 @@ export function SettingsPage() {
 
         <p className="border-border bg-sunken text-muted mt-4 rounded-md border p-3 text-xs leading-relaxed">
           Export creates a complete, offline ZIP archive: your records, Study Materials metadata,
-          and attachment files. Import replaces all current StudyDesk data in this browser after
-          validating the archive. Older JSON backups can still be imported, but contain metadata
-          only and cannot restore attachment files. Data does not sync between browsers or devices.
+          and attachment files. Import replaces all current StudyDesk data in the active profile
+          after validating the archive. Older JSON backups can still be imported, but contain
+          metadata only and cannot restore attachment files. Cloud sync transfers supported records,
+          but not attachment contents.
         </p>
         {backupStatus && (
           <p role="status" className="text-muted mt-3 text-sm">
@@ -204,15 +212,17 @@ export function SettingsPage() {
         )}
       </Card>
 
-      <LegacyDataCard
-        onPurge={() => toast({ message: 'Legacy copies removed', tone: 'success' })}
-      />
+      {profileId === null && (
+        <LegacyDataCard
+          onPurge={() => toast({ message: 'Legacy copies removed', tone: 'success' })}
+        />
+      )}
 
       <Card className="border-danger/40">
         <CardHeader title="Danger zone" />
         <p className="text-muted mb-4 text-sm">
-          Removes all StudyDesk data from this browser, including exams, study materials and timer
-          stats.
+          Removes all StudyDesk data from the active profile, including exams, study materials and
+          timer stats.
         </p>
         <button type="button" className="btn btn--danger" onClick={() => setConfirmClear(true)}>
           <Trash2 className="h-4 w-4" aria-hidden="true" /> Clear all data
@@ -252,7 +262,7 @@ export function SettingsPage() {
       <ConfirmDialog
         open={confirmClear}
         title="Clear all data?"
-        description="Removes all StudyDesk data from this browser, including exams, study materials and timer stats."
+        description="Removes all StudyDesk data from the active profile, including exams, study materials and timer stats."
         undoHint={false}
         confirmLabel="Delete everything"
         onCancel={() => setConfirmClear(false)}
@@ -261,7 +271,7 @@ export function SettingsPage() {
       <ConfirmDialog
         open={confirmRestore}
         title="Replace all StudyDesk data?"
-        description="Restoring replaces your current StudyDesk records and attachments in this browser. Export a backup first if you may need the current data."
+        description="Restoring replaces the current profile's StudyDesk records and attachments. Export a backup first if you may need the current data."
         undoHint={false}
         confirmLabel="Choose backup and replace data"
         onCancel={() => setConfirmRestore(false)}
@@ -289,7 +299,8 @@ function LegacyDataCard({ onPurge }: { onPurge: () => void }) {
   const [present, setPresent] = useState<string[]>([]);
 
   useEffect(() => {
-    setPresent(LEGACY_KEYS.filter((k) => storage.getItem(k) != null));
+    const guestStorage = storageForProfile(null);
+    setPresent(LEGACY_KEYS.filter((k) => guestStorage.getItem(k) != null));
   }, []);
 
   if (present.length === 0) return null;

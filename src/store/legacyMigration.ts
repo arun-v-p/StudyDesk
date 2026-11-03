@@ -23,7 +23,9 @@
  * sees the migrated data.
  */
 
-import { storage } from '../lib/safeStorage';
+import { storageForProfile } from '../lib/safeStorage';
+
+const storage = storageForProfile(null);
 
 const LEGACY_MAP: Record<string, string> = {
   studydesk_tasks: 'studydesk.tasks',

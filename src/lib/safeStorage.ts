@@ -29,6 +29,106 @@ export interface SafeStorage {
   bytesUsed(prefix?: string): number;
 }
 
+export type StorageProfileId = string | null;
+
+const PROFILE_PREFIX = 'studydesk.profile.';
+
+function isProfileDataKey(key: string): boolean {
+  return key.startsWith('studydesk.') && !key.startsWith('studydesk.sync.');
+}
+
+function physicalKey(profileId: StorageProfileId, key: string): string {
+  return profileId !== null && isProfileDataKey(key)
+    ? `${PROFILE_PREFIX}${encodeURIComponent(profileId)}.${key}`
+    : key;
+}
+
+let activeProfileId: StorageProfileId = null;
+
+export function getActiveStorageProfile(): StorageProfileId {
+  return activeProfileId;
+}
+
+export function setActiveStorageProfile(profileId: StorageProfileId): void {
+  if (profileId !== null && (profileId.length === 0 || profileId.length > 200)) {
+    throw new Error('The active StudyDesk profile ID is invalid.');
+  }
+  activeProfileId = profileId;
+}
+
+export function getProfileStorageKey(
+  key: string,
+  profileId: StorageProfileId = activeProfileId,
+): string {
+  return physicalKey(profileId, key);
+}
+
+class ProfileStorage implements SafeStorage {
+  constructor(
+    private readonly backend: SafeStorage,
+    private readonly getProfileId: () => StorageProfileId,
+  ) {}
+
+  get persistent(): boolean {
+    return this.backend.persistent;
+  }
+
+  get reason(): string | null {
+    return this.backend.reason;
+  }
+
+  getItem(key: string): string | null {
+    return this.backend.getItem(physicalKey(this.getProfileId(), key));
+  }
+
+  setItem(key: string, value: string): boolean {
+    return this.backend.setItem(physicalKey(this.getProfileId(), key), value);
+  }
+
+  removeItem(key: string): void {
+    this.backend.removeItem(physicalKey(this.getProfileId(), key));
+  }
+
+  private visibleKeys(): Array<{ logical: string; physical: string }> {
+    const profileId = this.getProfileId();
+    const ownPrefix =
+      profileId === null ? null : `${PROFILE_PREFIX}${encodeURIComponent(profileId)}.`;
+    const visible: Array<{ logical: string; physical: string }> = [];
+    for (let index = 0; index < this.backend.length; index += 1) {
+      const physical = this.backend.key(index);
+      if (!physical) continue;
+      if (ownPrefix && physical.startsWith(ownPrefix)) {
+        const logical = physical.slice(ownPrefix.length);
+        if (isProfileDataKey(logical)) visible.push({ logical, physical });
+      } else if (
+        profileId === null &&
+        !physical.startsWith(PROFILE_PREFIX) &&
+        isProfileDataKey(physical)
+      ) {
+        visible.push({ logical: physical, physical });
+      }
+    }
+    return visible;
+  }
+
+  key(index: number): string | null {
+    return this.visibleKeys()[index]?.logical ?? null;
+  }
+
+  get length(): number {
+    return this.visibleKeys().length;
+  }
+
+  bytesUsed(prefix = 'studydesk'): number {
+    let total = 0;
+    for (const { logical, physical } of this.visibleKeys()) {
+      if (prefix && !logical.startsWith(prefix)) continue;
+      total += logical.length + (this.backend.getItem(physical) ?? '').length;
+    }
+    return total;
+  }
+}
+
 class MemoryStorage implements SafeStorage {
   private readonly map = new Map<string, string>();
 
@@ -181,5 +281,20 @@ function describe(err: unknown): string {
   return 'Browser storage is unavailable.';
 }
 
-/** Singleton. Probe once, then reuse — probing on every call is wasteful. */
-export const storage: SafeStorage = new DomStorage();
+/** Probe once, then reuse — probing on every call is wasteful. */
+const backend: SafeStorage = new DomStorage();
+const fixedProfileStores = new Map<string, SafeStorage>();
+
+/** Storage for a specific profile, useful for safe cross-profile transfers. */
+export function storageForProfile(profileId: StorageProfileId): SafeStorage {
+  const cacheKey = profileId === null ? 'guest' : `user:${profileId}`;
+  let scoped = fixedProfileStores.get(cacheKey);
+  if (!scoped) {
+    scoped = new ProfileStorage(backend, () => profileId);
+    fixedProfileStores.set(cacheKey, scoped);
+  }
+  return scoped;
+}
+
+/** The app-facing storage view follows the profile selected by the auth gate. */
+export const storage: SafeStorage = new ProfileStorage(backend, getActiveStorageProfile);

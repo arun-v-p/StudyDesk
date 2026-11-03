@@ -1,8 +1,11 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from '../src/App';
 import { SEED_KEYS, loadSampleTerm } from '../src/store/seed';
+
+// App-level interaction tests exercise many components and can exceed Vitest's 5 s default under parallel CI load.
+vi.setConfig({ testTimeout: 15_000 });
 
 beforeEach(() => {
   localStorage.clear();
@@ -17,7 +20,13 @@ beforeEach(() => {
  * no error boundary, no routing, hover-only actions, unnamed icon buttons and
  * a bare-sentence first-run screen.
  */
-const h1 = (name: RegExp | string) => screen.findByRole('heading', { level: 1, name });
+// Route pages are intentionally code-split. On a saturated CI runner a cold
+// dynamic import can take longer than Testing Library's 1 s default even though
+// the UI is correct; use one explicit, bounded route-load allowance instead of
+// making individual tests flaky.
+const ROUTE_LOAD_TIMEOUT = 10_000;
+const h1 = (name: RegExp | string) =>
+  screen.findByRole('heading', { level: 1, name }, { timeout: ROUTE_LOAD_TIMEOUT });
 
 describe('App shell', () => {
   it('renders the shell and navigates by route', async () => {
@@ -141,7 +150,11 @@ describe('timetable rendering', () => {
     await h1(/^today$/i);
 
     await user.click(screen.getByRole('link', { name: /^timetable/i }));
-    const grid = await screen.findByLabelText(/weekly class timetable/i);
+    const grid = await screen.findByLabelText(
+      /weekly class timetable/i,
+      {},
+      { timeout: ROUTE_LOAD_TIMEOUT },
+    );
 
     const labels = Array.from(grid.querySelectorAll('[aria-label]')).map(
       (b) => b.getAttribute('aria-label') ?? '',
