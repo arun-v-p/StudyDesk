@@ -198,8 +198,8 @@ export function SyncCard() {
       {!session ? (
         <div className="space-y-3">
           <p className="text-muted text-sm">
-            Sign in from the account menu to sync supported planner records. Continue as a guest to
-            keep using this browser without an account.
+            Sign in to open the StudyDesk workspace. Cloud sync is optional and can be enabled for
+            supported planner records after sign-in.
           </p>
         </div>
       ) : (
