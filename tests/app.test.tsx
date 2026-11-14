@@ -4,6 +4,26 @@ import userEvent from '@testing-library/user-event';
 import App from '../src/App';
 import { SEED_KEYS, loadSampleTerm } from '../src/store/seed';
 
+const auth = vi.hoisted(() => ({
+  callback: null as
+    ((event: string, session: { user: { id: string; email: string } } | null) => void) | null,
+  session: { user: { id: 'app-test-user', email: 'student@example.test' } },
+}));
+
+vi.mock('../src/lib/supabase', () => ({
+  isSupabaseConfigured: true,
+  supabase: {
+    auth: {
+      getSession: vi.fn(async () => ({ data: { session: auth.session }, error: null })),
+      onAuthStateChange: vi.fn((callback: typeof auth.callback) => {
+        auth.callback = callback;
+        callback?.('INITIAL_SESSION', auth.session);
+        return { data: { subscription: { unsubscribe: vi.fn() } } };
+      }),
+    },
+  },
+}));
+
 // App-level interaction tests exercise many components and can exceed Vitest's 5 s default under parallel CI load.
 vi.setConfig({ testTimeout: 15_000 });
 

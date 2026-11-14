@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 
 const EFFECTIVE_DATE = '3 November 2026';
 const PRIVACY_CONTACT = 'vparun.work@gmail.com';
@@ -13,7 +14,7 @@ function PolicyDocument({ title, children }: { title: string; children: ReactNod
   }, [title]);
 
   return (
-    <article className="mx-auto max-w-3xl space-y-6">
+    <article className="mx-auto max-w-3xl space-y-6 px-4 py-8 sm:px-7">
       <header>
         <p className="text-subtle text-xs font-semibold tracking-wider uppercase">
           StudyDesk legal information
@@ -26,6 +27,17 @@ function PolicyDocument({ title, children }: { title: string; children: ReactNod
         These documents are not legal advice. They should be reviewed by a qualified legal
         professional for the applicable jurisdictions.
       </p>
+      <footer className="border-border flex flex-wrap gap-5 border-t pt-4 text-xs">
+        <Link className="text-muted hover:text-fg underline underline-offset-2" to="/privacy">
+          Privacy Policy
+        </Link>
+        <Link className="text-muted hover:text-fg underline underline-offset-2" to="/terms">
+          Terms of Service
+        </Link>
+        <Link className="text-muted hover:text-fg underline underline-offset-2" to="/">
+          Back to StudyDesk
+        </Link>
+      </footer>
     </article>
   );
 }
@@ -49,8 +61,8 @@ export function PrivacyPolicyPage() {
     <PolicyDocument title="Privacy Policy">
       <p>
         StudyDesk is a local-first study planner. This notice explains what the application stores
-        in your browser and what is sent to third-party services when you choose to use optional
-        sign-in and cloud sync.
+        in your browser and what is sent to third-party services when you sign in or enable cloud
+        sync.
       </p>
 
       <PolicySection title="Who operates StudyDesk">
@@ -74,26 +86,27 @@ export function PrivacyPolicyPage() {
 
       <PolicySection title="Local-first storage and profiles">
         <p>
-          StudyDesk works without an account. Planner records and settings are stored in browser
-          localStorage. Study Material attachment files are stored separately in IndexedDB. Browser
-          storage is specific to the browser and site origin; it can be removed by browser data
-          controls, device loss, or a change of browser or origin.
+          A StudyDesk account is required to open the workspace, but planner records and settings
+          are stored in browser localStorage by default. Study Material attachment files are stored
+          separately in IndexedDB. Cloud sync is optional. Browser storage is specific to the
+          browser and site origin; it can be removed by browser data controls, device loss, or a
+          change of browser or origin.
         </p>
         <p>
-          A guest profile uses the browser&apos;s unscoped StudyDesk data. When authenticated, the
-          app keeps a separate local profile for that Supabase user in the same browser. Signing out
-          switches profiles; it does not delete either profile or remove data from the cloud.
-          StudyDesk does not encrypt these local records itself, so protect access to your device
-          and browser profile.
+          Older unscoped StudyDesk data remains in a separate local profile and can be imported into
+          your signed-in profile from Settings. The app keeps a separate local profile for each
+          Supabase user in the same browser. Signing out switches away from that profile; it does
+          not delete local records or remove data from the cloud. StudyDesk does not encrypt these
+          local records itself, so protect access to your device and browser profile.
         </p>
       </PolicySection>
 
       <PolicySection title="Authentication and information sent to Supabase">
         <p>
-          The current sign-in screen offers passwordless email sign-in links and Google OAuth
-          through Supabase. Email sign-in sends your email address to Supabase Authentication, which
-          may send an email according to the project&apos;s dashboard configuration. Google sign-in
-          redirects you to Google for authentication and returns through Supabase.
+          StudyDesk offers passwordless email sign-in links and Google OAuth through Supabase. Email
+          sign-in sends your email address to Supabase Authentication, which may send an email
+          according to the project&apos;s dashboard configuration. Google sign-in redirects you to
+          Google for authentication and returns through Supabase.
         </p>
         <p>
           The client is configured to persist and refresh the Supabase session and to detect an

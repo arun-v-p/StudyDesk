@@ -43,7 +43,7 @@ function policyRouteEntries(): Plugin {
       path: 'privacy',
       title: 'StudyDesk | Privacy Policy',
       description:
-        'StudyDesk Privacy Policy: local-first browser storage, optional Supabase authentication and sync, backups, and deletion limitations.',
+        'StudyDesk Privacy Policy: required passwordless Supabase authentication, local-first browser storage, optional cloud sync, backups, and deletion limitations.',
     },
     {
       path: 'terms',

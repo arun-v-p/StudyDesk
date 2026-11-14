@@ -38,7 +38,7 @@ export function SearchPalette({ open, onClose }: { open: boolean; onClose: () =>
 
   const pages: Hit[] = useMemo(
     () => [
-      { id: 'p-today', label: 'Today', detail: 'Dashboard', path: '/', kind: 'page' },
+      { id: 'p-today', label: 'Today', detail: 'Dashboard', path: '/today', kind: 'page' },
       {
         id: 'p-deadlines',
         label: 'Deadlines',
@@ -97,7 +97,7 @@ export function SearchPalette({ open, onClose }: { open: boolean; onClose: () =>
         id: t.id,
         label: t.title,
         detail: t.completed ? 'Completed task' : 'Open task',
-        path: '/',
+        path: '/today',
         kind: 'task',
       })),
       ...planner.items.map<Hit>((p) => ({

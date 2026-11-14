@@ -21,7 +21,7 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  { path: '/', label: 'Today', icon: LayoutDashboard, end: true },
+  { path: '/today', label: 'Today', icon: LayoutDashboard, end: true },
   { path: '/deadlines', label: 'Deadlines', icon: ListTodo },
   { path: '/timetable', label: 'Timetable', icon: CalendarDays },
   { path: '/calendar', label: 'Calendar', icon: CalendarRange },
