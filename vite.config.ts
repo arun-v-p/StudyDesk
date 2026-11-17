@@ -5,6 +5,37 @@ import { defineConfig } from 'vite';
 import type { Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
+import { validatePublishableKey, validateSupabaseUrl } from './scripts/validate-supabase-env.mjs';
+
+/**
+ * Fail-closed guard: a build must never bake a secret-shaped Supabase value
+ * into the public bundle. Unconfigured builds (PRs, unconfigured dev) are
+ * valid; any present value is validated against the same rules the deploy
+ * workflow enforces.
+ */
+function validateSupabaseEnv(): Plugin {
+  return {
+    name: 'studydesk-validate-supabase-env',
+    apply: 'build',
+    configResolved(config) {
+      const url = config.env.VITE_SUPABASE_URL as string | undefined;
+      const key = config.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
+      if (!url && !key) return;
+      const verdicts = [
+        ['VITE_SUPABASE_URL', validateSupabaseUrl(url)],
+        ['VITE_SUPABASE_PUBLISHABLE_KEY', validatePublishableKey(key)],
+      ] as const;
+      const problems = verdicts
+        .filter(([, verdict]) => !verdict.ok)
+        .map(([name, verdict]) => `${name} ${verdict.ok ? '' : verdict.reason}`);
+      if (problems.length > 0) {
+        throw new Error(
+          `Invalid Supabase build configuration (values are never echoed): ${problems.join('; ')}.`,
+        );
+      }
+    },
+  };
+}
 
 /**
  * `base` is derived, not hardcoded. A fixed "/StudyDesk/" breaks the moment the
@@ -206,7 +237,7 @@ process.env.VITE_SITE_URL = resolveSiteUrl();
 
 export default defineConfig({
   base: resolveBase(),
-  plugins: [react(), tailwindcss(), appShellServiceWorker(), policyRouteEntries()],
+  plugins: [react(), tailwindcss(), validateSupabaseEnv(), appShellServiceWorker(), policyRouteEntries()],
   server: { host: '0.0.0.0', port: 3000, strictPort: true },
   build: {
     chunkSizeWarningLimit: 250,
