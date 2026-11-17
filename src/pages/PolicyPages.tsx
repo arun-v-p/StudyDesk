@@ -96,8 +96,11 @@ export function PrivacyPolicyPage() {
           Older unscoped StudyDesk data remains in a separate local profile and can be imported into
           your signed-in profile from Settings. The app keeps a separate local profile for each
           Supabase user in the same browser. Signing out switches away from that profile; it does
-          not delete local records or remove data from the cloud. StudyDesk does not encrypt these
-          local records itself, so protect access to your device and browser profile.
+          not delete local records or remove data from the cloud. A normal sign-out ends the session
+          on the current device only, and other signed-in devices remain active; the account menu
+          also offers a &ldquo;log out of all devices&rdquo; action, which revokes those sessions.
+          StudyDesk does not encrypt these local records itself, so protect access to your device
+          and browser profile.
         </p>
       </PolicySection>
 

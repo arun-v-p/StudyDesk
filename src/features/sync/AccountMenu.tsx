@@ -52,7 +52,7 @@ export function AccountMenu() {
     };
   }, [menuOpen]);
 
-  const logout = async () => {
+  const logout = async (scope: 'local' | 'global') => {
     if (!supabase) {
       setFeedback({
         kind: 'error',
@@ -62,7 +62,7 @@ export function AccountMenu() {
     }
     setBusy(true);
     try {
-      const { error } = await supabase.auth.signOut({ scope: 'local' });
+      const { error } = await supabase.auth.signOut({ scope });
       if (error) throw error;
       setMenuOpen(false);
       setFeedback(null);
@@ -113,15 +113,24 @@ export function AccountMenu() {
             </div>
           </div>
           <p className="text-subtle border-border border-t px-1 py-2 text-xs">
-            Signing out does not delete your local or cloud data.
+            Signing out keeps your data on this device and in the cloud. This device only — other
+            devices stay signed in until you log out of all devices.
           </p>
           <button
             type="button"
             className="btn btn--ghost w-full justify-start"
             disabled={busy}
-            onClick={() => void logout()}
+            onClick={() => void logout('local')}
           >
             <LogOut className="h-4 w-4" aria-hidden="true" /> Log out
+          </button>
+          <button
+            type="button"
+            className="btn btn--ghost w-full justify-start"
+            disabled={busy}
+            onClick={() => void logout('global')}
+          >
+            <LogOut className="h-4 w-4" aria-hidden="true" /> Log out of all devices
           </button>
           {feedback && (
             <p role="alert" className="text-muted mt-2 text-xs">

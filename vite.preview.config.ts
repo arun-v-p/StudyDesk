@@ -2,6 +2,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { viteSingleFile } from 'vite-plugin-singlefile';
+import pkg from './package.json';
 
 /**
  * Separate config for `npm run build:preview`.
@@ -24,6 +25,10 @@ process.env.VITE_SITE_URL =
 
 export default defineConfig({
   base: './',
+  // Same derivation as vite.config.ts so preview archives carry the same metadata.
+  define: {
+    'import.meta.env.VITE_APP_VERSION': JSON.stringify(pkg.version),
+  },
   plugins: [react(), tailwindcss(), viteSingleFile({ removeViteModuleLoader: true })],
   build: {
     outDir: 'preview-dist',
