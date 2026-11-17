@@ -8,7 +8,9 @@ const FAKE_GOOGLE_SECRET = `GOCSPX-${'0123456789abcdefghij'}`;
 function fakeJwt(payload: Record<string, unknown>): string {
   const encode = (value: object) =>
     Buffer.from(JSON.stringify(value), 'utf8').toString('base64url');
-  return [encode({ alg: 'HS256', typ: 'JWT' }), encode(payload), 'c2lnbmF0dXJlLXNlZ21lbnQ'].join('.');
+  return [encode({ alg: 'HS256', typ: 'JWT' }), encode(payload), 'c2lnbmF0dXJlLXNlZ21lbnQ'].join(
+    '.',
+  );
 }
 
 describe('scanForSecrets', () => {
@@ -19,7 +21,8 @@ describe('scanForSecrets', () => {
   });
 
   it('does not flag the bare key-format classifier literal in supabase-js', () => {
-    const libraryCode = 'const isSecret = r => r.startsWith("sb_secret_") || r.startsWith("sb_publishable_");';
+    const libraryCode =
+      'const isSecret = r => r.startsWith("sb_secret_") || r.startsWith("sb_publishable_");';
     expect(scanForSecrets(libraryCode)).toEqual([]);
   });
 

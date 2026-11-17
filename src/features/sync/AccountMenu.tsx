@@ -113,8 +113,8 @@ export function AccountMenu() {
             </div>
           </div>
           <p className="text-subtle border-border border-t px-1 py-2 text-xs">
-            Signing out keeps your data on this device and in the cloud. This device only —
-            other devices stay signed in until you log out of all devices.
+            Signing out keeps your data on this device and in the cloud. This device only — other
+            devices stay signed in until you log out of all devices.
           </p>
           <button
             type="button"

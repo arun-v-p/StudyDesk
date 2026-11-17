@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  validatePublishableKey,
-  validateSupabaseUrl,
-} from '../scripts/validate-supabase-env.mjs';
+import { validatePublishableKey, validateSupabaseUrl } from '../scripts/validate-supabase-env.mjs';
 
 /** Synthetic keys only — no real credential material is used in tests. */
 const FAKE_PUBLISHABLE = 'sb_publishable_0123456789abcdefghij';
@@ -39,7 +36,9 @@ describe('validateSupabaseUrl', () => {
 
   it('rejects URLs carrying a path, query, or fragment', () => {
     expect(validateSupabaseUrl('https://abcdefghijklmnopqrst.supabase.co/auth/v1').ok).toBe(false);
-    expect(validateSupabaseUrl('https://abcdefghijklmnopqrst.supabase.co/?apikey=x').ok).toBe(false);
+    expect(validateSupabaseUrl('https://abcdefghijklmnopqrst.supabase.co/?apikey=x').ok).toBe(
+      false,
+    );
     expect(validateSupabaseUrl('https://abcdefghijklmnopqrst.supabase.co/#frag').ok).toBe(false);
   });
 });
@@ -50,7 +49,9 @@ describe('validatePublishableKey', () => {
   });
 
   it('accepts the legacy anon JWT format', () => {
-    expect(validatePublishableKey(fakeJwt({ role: 'anon', iss: 'supabase' }))).toEqual({ ok: true });
+    expect(validatePublishableKey(fakeJwt({ role: 'anon', iss: 'supabase' }))).toEqual({
+      ok: true,
+    });
   });
 
   it('rejects secret keys outright, in either format', () => {
