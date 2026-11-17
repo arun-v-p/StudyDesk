@@ -1,0 +1,71 @@
+# Credentials & Configuration Inventory
+
+Generated 2026-11-17. This document intentionally contains **only variable names and
+locations** — never secret values. It describes the configuration surface of
+StudyDesk for onboarding, auditing and incident response.
+
+> Rule of thumb enforced by this repo: **everything reachable from the browser is
+> public by design.** Nothing secret is ever placed in a `VITE_*` variable, a
+> GitHub Actions *variable*, or the GitHub Pages build.
+
+## 1. Credentials inventory
+
+| # | Service | Variable / config name | Purpose | Public or secret | Where configured | Used by |
+|---|---------|------------------------|---------|------------------|------------------|---------|
+| 1 | Supabase (project endpoint) | `VITE_SUPABASE_URL` | Base URL of the Supabase project (Auth, Postgres, Realtime) | **Public** (browser config, not a credential) | `.env.local` (gitignored, never committed); GitHub Actions **repository variable** `vars.VITE_SUPABASE_URL`; documented in `.env.example` | `src/lib/supabase.ts` — creates the shared `supabase` client consumed by cloud sync (`src/features/sync/cloudSync.ts`), auth UI (`src/pages/AuthLandingPage.tsx`, `src/features/sync/AccountMenu.tsx`, `src/features/sync/AccountProfile.tsx`) |
+| 2 | Supabase (API key) | `VITE_SUPABASE_PUBLISHABLE_KEY` | Publishable ("anon") API key identifying the browser client; authority comes from RLS + the user's JWT, never from this key | **Public by design** — safe to embed in the shipped JS bundle | Same as #1 (repository variable `vars.VITE_SUPABASE_PUBLISHABLE_KEY`) | `src/lib/supabase.ts` (`createClient(url, publishableKey, …)`) |
+| 3 | Supabase (service-role / secret key) | — | Full server-side database access | **Secret** — must exist only in the Supabase dashboard; never in a `VITE_*` var, never in this repo, never in the Pages build | Supabase dashboard only (not present anywhere in the repo or CI) | Nothing (no server component exists) |
+| 4 | Google Cloud (OAuth client) | Google OAuth **client ID + client secret** (no variable name — not a Vite/CI value) | Identity provider for "Continue with Google" | Client ID: public. **Client secret: secret** | Configured **inside the Supabase dashboard** (Auth → Sign In / Providers) per `supabase/README.md`; authorized redirect URIs set in Google Cloud Console | Supabase Auth on behalf of `supabase.auth.signInWithOAuth({ provider: 'google' })` in `src/pages/AuthLandingPage.tsx` |
+| 5 | Supabase (email delivery) | Supabase built-in email / SMTP settings (dashboard-only) | Delivers passwordless magic sign-in links | **Secret** (SMTP credentials, if custom SMTP is ever added) | Supabase dashboard (Auth → Email templates / SMTP). No SMTP config exists in the repo | `supabase.auth.signInWithOtp({ email, options.emailRedirectTo })` in `src/pages/AuthLandingPage.tsx` |
+| 6 | Supabase (database schema) | SQL migration `supabase/migrations/202611030001_studydesk_sync.sql` | Table `public.study_records`, RLS policies (owner-scoped), RPC `sync_studydesk_record`, Realtime publication membership | Public (code), applied via dashboard SQL Editor or `supabase db push` | Applied manually to the Supabase project; not applied automatically by CI | Cloud sync read/write and Realtime in `src/features/sync/cloudSync.ts` |
+| 7 | GitHub Pages (hosting) | `github-pages` environment; implicit `GITHUB_TOKEN` | Static hosting of the built SPA | `GITHUB_TOKEN` is ephemeral and scoped by the workflow's `permissions:` block | `.github/workflows/deploy.yml` (`contents: read`, `pages: write`, `id-token: write`) | `actions/upload-pages-artifact@v5` + `actions/deploy-pages@v5` (OIDC, no Pages deploy token stored) |
+| 8 | GitHub Actions (build-time config) | `vars.VITE_SUPABASE_URL`, `vars.VITE_SUPABASE_PUBLISHABLE_KEY` | Passed into the production build; deploy fails fast if either is missing | Public (repository **variables**, not secrets — correct, because both values are public browser config) | Repo **Settings → Secrets and variables → Actions → Variables** | `Verify production Supabase configuration` and `Build` steps in `.github/workflows/deploy.yml` |
+| 9 | GitHub Actions (repo metadata) | `GITHUB_REPOSITORY` | Auto-provided CI variable used to derive the Pages `base` path and canonical site URL | Public metadata | Provided automatically by GitHub Actions | `resolveBase()` / `resolveSiteUrl()` in `vite.config.ts`, mirrored in `vite.preview.config.ts` |
+| 10 | Site identity | `VITE_SITE_URL` | Canonical URL, `og:`/`twitter:` tags, manifest `start_url`, policy-route canonicals | Public | `.env.example` (default: the `github.io` URL); auto-derived from `GITHUB_REPOSITORY` when unset; overridable in `.env.local` for a custom domain | `%VITE_SITE_URL%` tokens in `index.html`; `policyRouteEntries()` plugin in `vite.config.ts` |
+| 11 | Vite base path override | `VITE_BASE` | Forces the deploy base path for unusual hosting | Public | Optional; documented in `.env.example` | `resolveBase()` in `vite.config.ts` (CI leaves it unset and derives from `GITHUB_REPOSITORY`) |
+| 12 | App version stamp | `VITE_APP_VERSION` | Version string written into ZIP backup archive metadata | Public (harmless) | **Not defined anywhere** — see gap G1 | `src/store/backup.ts` (`downloadBackup` → `createArchive`) |
+| 13 | Vite built-ins | `import.meta.env.BASE_URL`, `import.meta.env.PROD` | Router basename, service-worker registration (prod only) | Public | Derived by Vite from `base` | `src/App.tsx`, `src/main.tsx`, `src/pages/AuthLandingPage.tsx` |
+| 14 | Browser localStorage (app data) | `studydesk.*` keys, `studydesk.profile.<id>.*` (per-user profiles), `studydesk.sync.shadow.*`, `studydesk.sync.outbox.*`, `studydesk.sync.initialization.*` | Local-first planner data, sync shadow state, durable outbox | Private to the user's browser (not a credential, but personal data) | Runtime, via `src/lib/safeStorage.ts` wrapper | `src/store/*`, `src/features/sync/cloudSync.ts` |
+| 15 | Supabase Auth session (runtime) | `sb-<project-ref>-auth-token` localStorage key (created by supabase-js) | Persisted session: access token + refresh token | **Secret at runtime** — lives in the browser's localStorage | Created automatically by `@supabase/supabase-js` (`persistSession: true, autoRefreshToken: true, detectSessionInUrl: true` in `src/lib/supabase.ts`) | Session bootstrap/refresh in `src/features/sync/AccountProfile.tsx`, sign-out in `src/features/sync/AccountMenu.tsx` (`signOut({ scope: 'local' })`) |
+| 16 | IndexedDB (attachments) | materials blob database | Study-material attachment bytes; intentionally **not** synced in this release | Private to the browser | Runtime | `src/store/materials.ts`, ZIP backup/restore in `src/store/backup.ts` / `src/store/archive.ts` |
+| 17 | Service worker cache | `studydesk-shell-<buildId>` Cache Storage | Offline app-shell precache | Public asset cache | Generated at build by `appShellServiceWorker()` in `vite.config.ts` | `src/main.tsx` registration, generated `sw.js` |
+
+## 2. External services & infrastructure dependencies
+
+- **Supabase** — Auth (passwordless email OTP + Google OAuth), Postgres with RLS, RPC, Realtime. Client: `@supabase/supabase-js` (lazy-loaded chunk).
+- **Google Cloud / Google Identity** — OAuth provider behind Supabase Auth; redirect URIs must match the Supabase callback and the site's local/production URLs.
+- **GitHub Pages** — production hosting behind `https://arun-v-p.github.io/StudyDesk/` (redirect allow-list in Supabase must include it).
+- **GitHub Actions** — CI/CD: lint → format:check → typecheck → test → build → Pages deploy (OIDC; no stored deploy token).
+- **Dependabot** — weekly npm and github-actions update PRs (`.github/dependabot.yml`).
+- **Node.js** — CI uses Node 22; `engines: ^20.19.0 || >=22.12.0`.
+- **Supabase Realtime** — websocket subscription used by cloud sync.
+
+## 3. Verification performed (2026-11-17)
+
+- `.gitignore` covers `.env` and `.env.*` (except `.env.example`); `git check-ignore` confirms `.env.local` is ignored.
+- Full git history scan: **only `.env.example` was ever committed** — no `.env`/`.env.local` blob exists in any commit.
+- Source scan: no hardcoded Supabase URLs, JWTs, `sb_secret_` values, service-role keys or API keys in the repo.
+- Built `dist/` bundle scan (presence checks only): contains the Supabase project URL and a `sb_publishable_` key — both public by design. Contains **no** `sb_secret_` value or JWT; the `sb_secret_` string that appears is a prefix literal inside the bundled supabase-js key-format classifier, not a credential. `preview-dist/` contains neither.
+
+## 4. Missing configuration (gaps)
+
+| ID | Gap | Impact | Suggested fix |
+|----|-----|--------|---------------|
+| G1 | `VITE_APP_VERSION` is read in `src/store/backup.ts` but is not defined in `.env.example`, CI, or `vite.config.ts` | Backup ZIP metadata records an undefined app version | Define it at build time (e.g. inject `package.json` version via `define` in `vite.config.ts`) or remove the reference |
+| G2 | CI "verify" step checks that the two Supabase variables are non-empty but does not validate their format | A service-role key pasted into the *variable* slot would be baked into the public bundle without any warning | Add a build-time assertion: URL must be `https://`, key must start with `sb_publishable_` (or the legacy anon-JWT shape); fail the build otherwise |
+| G3 | No Content-Security-Policy (meta or header) in `index.html` | Larger blast radius for any future XSS; tokens in localStorage are directly exfiltratable | Add a CSP meta tag appropriate for a SPA + Supabase (`connect-src` Supabase origin, `self` for scripts) |
+| G4 | No automated secret scanning (GitHub secret scanning / push protection, or a gitleaks-style hook) | Relies only on review to keep secrets out | Enable GitHub push protection; optionally add a secret-scan step to `deploy.yml` |
+| G5 | Google OAuth redirect allow-list and Supabase URL configuration are manual dashboard steps (documented in `supabase/README.md`, enforced nowhere) | A mismatch silently breaks sign-in after a domain/repo rename | Consider a smoke check or documented runbook item in the release checklist |
+
+## 5. Potential security risks & hardening notes
+
+- **R1 — Vite vars are build-time inlined.** Every `VITE_*` value is permanently embedded in the shipped JS. The current two values are public by design, but the pattern is unforgiving: anything secret entered as a `VITE_*` var or into the `vars.*` slot leaks. Mitigation: G2's format assertion plus the documented rule in `.env.example` and `supabase/README.md`.
+- **R2 — Auth session stored in `localStorage`.** supabase-js persists access/refresh tokens in localStorage (`sb-…-auth-token`), which any successful XSS can read. Combined with G3 (no CSP) this is the highest-value hardening target. Acceptable for a static SPA today, but worth tracking.
+- **R3 — `detectSessionInUrl: true`.** OAuth/OTP callbacks carry tokens in the URL hash before supabase-js consumes and cleans them; standard referrer/history caveats apply (mitigated by Supabase's hash-based flow, but never log or share post-callback URLs).
+- **R4 — Actions pinned by version tag** (`@v7`, `@v5`), not commit SHA. Dependabot keeps them current, but tag compromise is a supply-chain vector; pin to SHAs if stricter supply-chain posture is wanted.
+- **R5 — Publishable key held as a repository *variable*, not a secret.** Correct for a public-by-design value, and `vars.*` is visible to anyone with repo read access — this must stay publishable-only. Rotation note: if the key type ever changes, migrate it to `secrets.*` and update `deploy.yml` accordingly.
+- **R6 — `signOut({ scope: 'local' })`.** Sign-out revokes the session on the current device only; other signed-in devices keep theirs. Appears intentional (per-device profiles) but should stay a conscious choice.
+- **R7 — Realtime exposure.** `study_records` is added to the `supabase_realtime` publication; RLS is enabled and `anon` is revoked on the table and RPC, so postgres_changes events are owner-scoped. Keep this invariant in future migrations.
+- **R8 — Local `.env.local` hygiene.** Present in the working tree with the two public values; correctly gitignored and absent from history (verified). If the file ever gains a secret-shaped value, rotate it and purge history immediately.
+
+*Nothing in this audit modified credentials or production configuration; all checks were read-only.*
