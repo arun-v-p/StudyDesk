@@ -7,6 +7,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import pkg from './package.json';
 import { validatePublishableKey, validateSupabaseUrl } from './scripts/validate-supabase-env.mjs';
+import { buildCspPolicy, computeInlineScriptHashes } from './scripts/csp-policy.mjs';
 
 /**
  * Fail-closed guard: a build must never bake a secret-shaped Supabase value
@@ -66,6 +67,48 @@ function resolveSiteUrl(): string {
   const [owner, name] = repo.split('/');
   if (!owner || !name) return 'http://localhost:3000/';
   return `https://${owner}.github.io/${name}/`;
+}
+
+/**
+ * Content Security Policy, delivered as a <meta> tag (GitHub Pages cannot
+ * set HTTP headers). A placeholder is injected into <head> during HTML
+ * transformation, then resolved in writeBundle by rewriting the FINAL built
+ * dist/index.html from disk — inline-script hashes must match the minified
+ * output, which only exists once the bundle has been written. This plugin is
+ * ordered BEFORE policyRouteEntries() so the /privacy and /terms pages copy
+ * the already-resolved document.
+ *
+ * Dev server and the single-file preview build are untouched: dev injects an
+ * inline React preamble, and the preview bundle inlines every script.
+ */
+function contentSecurityPolicy(): Plugin {
+  let supabaseUrl: string | undefined;
+  let outputDir = '';
+  return {
+    name: 'studydesk-content-security-policy',
+    apply: 'build',
+    configResolved(config) {
+      supabaseUrl = config.env.VITE_SUPABASE_URL as string | undefined;
+      outputDir = resolve(config.root, config.build.outDir);
+    },
+    transformIndexHtml(html) {
+      return html.replace(
+        '<head>',
+        `<head>\n    <meta http-equiv="Content-Security-Policy" content="__STUDYDESK_CSP__">`,
+      );
+    },
+    writeBundle() {
+      const indexPath = resolve(outputDir, 'index.html');
+      const html = readFileSync(indexPath, 'utf8');
+      if (!html.includes('__STUDYDESK_CSP__')) {
+        throw new Error('The Content-Security-Policy placeholder was not found in the built HTML.');
+      }
+      const scriptHashes = computeInlineScriptHashes(html);
+      const policy = buildCspPolicy({ supabaseUrl, scriptHashes });
+      const resolved = html.replace('__STUDYDESK_CSP__', policy);
+      writeFileSync(indexPath, resolved);
+    },
+  };
 }
 
 function policyRouteEntries(): Plugin {
@@ -243,7 +286,14 @@ export default defineConfig({
   define: {
     'import.meta.env.VITE_APP_VERSION': JSON.stringify(pkg.version),
   },
-  plugins: [react(), tailwindcss(), validateSupabaseEnv(), appShellServiceWorker(), policyRouteEntries()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    validateSupabaseEnv(),
+    appShellServiceWorker(),
+    contentSecurityPolicy(),
+    policyRouteEntries(),
+  ],
   server: { host: '0.0.0.0', port: 3000, strictPort: true },
   build: {
     chunkSizeWarningLimit: 250,

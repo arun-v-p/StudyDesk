@@ -33,6 +33,7 @@ the public bundle (Vite inlines all `VITE_*` values at build time). This is inve
 gap G2 / risk R1.
 
 **Proposed fix.**
+
 1. New `scripts/validate-supabase-env.mjs` with pure, unit-testable validators:
    - **URL**: must parse as an absolute URL with protocol `https:` and a hostname of
      the form `<ref>.supabase.co` (no `localhost`, no plain `http:`); trailing slash
@@ -54,6 +55,7 @@ gap G2 / risk R1.
 (new), `vite.config.ts`, `tests/supabaseEnv.test.ts` (new), `docs/credentials-inventory.md` (G2 status).
 
 **Risks.**
+
 - Over-strict URL matching could reject a future custom Supabase domain. Mitigation:
   constrain to `*.supabase.co` today and document the escape hatch; relax only with
   review.
@@ -63,6 +65,7 @@ gap G2 / risk R1.
 - Plugin must tolerate absent env vars (PR builds / unconfigured dev) without failing.
 
 **Tests.**
+
 - Unit tests: valid publishable key; valid legacy anon JWT; reject `sb_secret_…`;
   reject JWT with `role: "service_role"`; accept `role: "anon"`; reject
   `http://`/`localhost`/malformed URL; accept trailing slash.
@@ -80,24 +83,27 @@ supabase-js legitimately contains the literal `sb_secret_` (key-format classifie
 
 **Proposed fix.** New `scripts/scan-dist-secrets.mjs`, run in CI **after Build and
 before the artifact upload** (on the deploy path), scanning `dist/**/*.{js,html}`:
+
 - fail on `sb_secret_[A-Za-z0-9_-]{20,}` (length-qualified, so the bare classifier
   literal `startsWith("sb_secret_")` in bundled supabase-js does **not** match);
 - fail on any JWT-shaped string whose decoded payload has `role: "service_role"`
   (a legacy anon JWT passes — it is also a publishable key);
 - on detection, print file path and a redacted context slice only; exit non-zero.
-Same scan runs as a local npm script (`npm run scan:dist`) for parity.
+  Same scan runs as a local npm script (`npm run scan:dist`) for parity.
 
 **Affected files.** `scripts/scan-dist-secrets.mjs` (new), `.github/workflows/deploy.yml`,
 `package.json` (script entry), `tests/distScan.test.ts` (new, synthetic fixtures only —
 never real key material), `docs/credentials-inventory.md` (G2/R1 status).
 
 **Risks.**
+
 - False negatives are possible by construction (scans are pattern-based); this is a
   tripwire, not a guarantee. The primary control remains C1's input validation.
 - A future legit feature (none known) embedding long `sb_secret_`-prefixed strings
   would fail the build — acceptable fail-closed behaviour.
 
 **Tests.**
+
 - Unit tests with synthetic fixtures: fake secret token fails; bare classifier
   literal passes; `service_role` JWT fixture fails; `anon` JWT fixture passes;
   clean bundle passes.
@@ -143,19 +149,20 @@ persisted Supabase session tokens (`sb-…-auth-token`, risk R2).
 **Proposed policy** (delivered as `<meta http-equiv="Content-Security-Policy">`, the
 only option on GitHub Pages):
 
-| Directive | Value | Why |
-|---|---|---|
-| `default-src` | `'self'` | Baseline |
-| `script-src` | `'self' 'sha256-<hash>'` | Vite emits external chunks; the one inline script (theme bootstrap) gets a build-time-computed SHA-256 hash — no `unsafe-inline` needed |
-| `style-src` | `'self' 'unsafe-inline'` | Inline `<style>` (boot skeleton) + `style=` attributes (no-JS fallback, React inline styles). Documented trade-off; can be tightened to hashes later |
-| `img-src` | `'self' data: blob:` | Self-hosted icons; attachment previews via object URLs |
-| `connect-src` | `'self' https://<ref>.supabase.co wss://<ref>.supabase.co` | supabase-js REST + Realtime websocket. Exact origin injected at build time from `VITE_SUPABASE_URL` (tighter than a wildcard); omitted on PR builds where the client is unconfigured |
-| `frame-src` | `'self' blob:` | PDF attachment preview iframe |
-| `worker-src` | `'self'` | App-shell service worker |
-| `manifest-src` / `font-src` | `'self'` | PWA manifest; no external fonts exist |
-| `object-src`, `base-uri`, `form-action` | `'none'`, `'self'`, `'self'` | Hardening defaults |
+| Directive                               | Value                                                      | Why                                                                                                                                                                                  |
+| --------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `default-src`                           | `'self'`                                                   | Baseline                                                                                                                                                                             |
+| `script-src`                            | `'self' 'sha256-<hash>'`                                   | Vite emits external chunks; the one inline script (theme bootstrap) gets a build-time-computed SHA-256 hash — no `unsafe-inline` needed                                              |
+| `style-src`                             | `'self' 'unsafe-inline'`                                   | Inline `<style>` (boot skeleton) + `style=` attributes (no-JS fallback, React inline styles). Documented trade-off; can be tightened to hashes later                                 |
+| `img-src`                               | `'self' data: blob:`                                       | Self-hosted icons; attachment previews via object URLs                                                                                                                               |
+| `connect-src`                           | `'self' https://<ref>.supabase.co wss://<ref>.supabase.co` | supabase-js REST + Realtime websocket. Exact origin injected at build time from `VITE_SUPABASE_URL` (tighter than a wildcard); omitted on PR builds where the client is unconfigured |
+| `frame-src`                             | `'self' blob:`                                             | PDF attachment preview iframe                                                                                                                                                        |
+| `worker-src`                            | `'self'`                                                   | App-shell service worker                                                                                                                                                             |
+| `manifest-src` / `font-src`             | `'self'`                                                   | PWA manifest; no external fonts exist                                                                                                                                                |
+| `object-src`, `base-uri`, `form-action` | `'none'`, `'self'`, `'self'`                               | Hardening defaults                                                                                                                                                                   |
 
 Explicit non-requirements (the "Google OAuth compatibility" question):
+
 - **Google OAuth and email OTP are top-level browser redirects**
   (`signInWithOAuth({ provider: 'google' })` → Supabase authorize endpoint →
   `accounts.google.com` → back). CSP does not govern top-level navigations, so
@@ -166,6 +173,7 @@ Explicit non-requirements (the "Google OAuth compatibility" question):
 
 **Proposed implementation.** New `contentSecurityPolicy()` plugin in
 `vite.config.ts` (`apply: 'build'`), mirroring the existing plugin style:
+
 1. `transformIndexHtml` injects a meta tag with a `__CSP__` placeholder.
 2. In `generateBundle`, read the **final** built `index.html` asset, compute the
    SHA-256 of each inline script exactly as shipped, substitute the placeholder, and
@@ -185,6 +193,7 @@ Explicit non-requirements (the "Google OAuth compatibility" question):
 the required directives).
 
 **Risks.**
+
 - Hash mismatch after a Vite/HTML-minifier change would block script execution.
   Mitigated by computing the hash from the final bundle, not the source, plus a CI
   assertion and a manual QA pass (auth, sync, PDF preview, ICS export, offline shell)
@@ -196,6 +205,7 @@ the required directives).
   surface than scripts; hashes for styles are brittle here).
 
 **Tests.**
+
 - Unit-test the policy builder: required directives present; supabase origins added
   when env is set and omitted when not; no `unsafe-inline` in `script-src`.
 - CI smoke: grep built HTML for the CSP meta and `frame-src 'self' blob:`,
@@ -215,12 +225,12 @@ risk R4). Dependabot keeps versions current but cannot protect against tag mutat
 comment. Verified today via `git ls-remote` (all lightweight tags, so the tag SHA is
 the commit; no `^{}` peel lines):
 
-| Action | Tag | Commit SHA |
-|---|---|---|
-| `actions/checkout` | v7 | `3d3c42e5aac5ba805825da76410c181273ba90b1` |
-| `actions/setup-node` | v7 | `949feb2413d6458794dcd2491c4babbbce0c15c1` |
-| `actions/upload-pages-artifact` | v5 | `fc324d3547104276b827a68afc52ff2a11cc49c9` |
-| `actions/deploy-pages` | v5 | `368f82528645a54fb793d4d04e342629a3f51346` |
+| Action                          | Tag | Commit SHA                                 |
+| ------------------------------- | --- | ------------------------------------------ |
+| `actions/checkout`              | v7  | `3d3c42e5aac5ba805825da76410c181273ba90b1` |
+| `actions/setup-node`            | v7  | `949feb2413d6458794dcd2491c4babbbce0c15c1` |
+| `actions/upload-pages-artifact` | v5  | `fc324d3547104276b827a68afc52ff2a11cc49c9` |
+| `actions/deploy-pages`          | v5  | `368f82528645a54fb793d4d04e342629a3f51346` |
 
 SHAs will be re-verified at implementation time before writing. Dependabot's
 `github-actions` ecosystem handles SHA-pinned actions natively and keeps the version
@@ -247,12 +257,14 @@ On a shared lab computer this is a real exposure: a user may believe signing out
 protects their account when it only protects that browser profile (inventory risk R6).
 
 **Findings (behaviour confirmed safe today).**
+
 - Per-profile data isolation is already correct: `AccountProfile.tsx` switches
   localStorage namespaces by user ID (`studydesk.profile.<id>.*`), and sign-out
   returns to the guest profile; supabase-js removes the local session storage.
 - No data loss occurs on sign-out (copy is accurate on that point).
 
 **Proposed fix (minimal, behaviour-preserving where possible).**
+
 1. Update menu copy to disclose the scope: e.g. "Signing out keeps your data and
    stays signed in on other devices."
 2. Add a secondary action **"Log out of all devices"** calling
@@ -295,13 +307,13 @@ The planned private Storage migration (resumable uploads, quotas, deletion lifec
 attachment recovery — `supabase/README.md`) expands user data into server-side files.
 **Complete C1, C2, C3, C4 and C6 first:**
 
-| Prerequisite | Why it must come first |
-|---|---|
-| **C1 + C2** (validation + output scan) | Storage work adds new env/config surface and the temptation of server-side access. The fail-closed gates must exist before any new credentials-adjacent code lands, so a service-role key can never reach the bundle. |
-| **C4** (CSP) | Uploads/downloads and preview flows add `connect-src` origins, `frame-src`/`img-src` blob usage and possibly `<form>`/fetch patterns. Building the policy infrastructure now means storage UI plugs into it instead of forcing a CSP rework after files are already flowing. |
-| **C3** (`VITE_APP_VERSION`) | The recovery architecture depends on archive metadata for forward/backward compatibility and migration decisions. Version stamping must be truthful before recovery tooling starts reading it. |
-| **C6** (sign-out) | Server-side files make shared-device exposure concrete (a lingering session on a lab machine can access files). Global sign-out and honest copy should exist before file data becomes reachable. |
-| **C5** (SHA pinning) | Not a hard prerequisite, but supply-chain hygiene should be in place before CI grows more storage-related steps. |
+| Prerequisite                           | Why it must come first                                                                                                                                                                                                                                                       |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **C1 + C2** (validation + output scan) | Storage work adds new env/config surface and the temptation of server-side access. The fail-closed gates must exist before any new credentials-adjacent code lands, so a service-role key can never reach the bundle.                                                        |
+| **C4** (CSP)                           | Uploads/downloads and preview flows add `connect-src` origins, `frame-src`/`img-src` blob usage and possibly `<form>`/fetch patterns. Building the policy infrastructure now means storage UI plugs into it instead of forcing a CSP rework after files are already flowing. |
+| **C3** (`VITE_APP_VERSION`)            | The recovery architecture depends on archive metadata for forward/backward compatibility and migration decisions. Version stamping must be truthful before recovery tooling starts reading it.                                                                               |
+| **C6** (sign-out)                      | Server-side files make shared-device exposure concrete (a lingering session on a lab machine can access files). Global sign-out and honest copy should exist before file data becomes reachable.                                                                             |
+| **C5** (SHA pinning)                   | Not a hard prerequisite, but supply-chain hygiene should be in place before CI grows more storage-related steps.                                                                                                                                                             |
 
 Additional recommendation from the inventory worth folding in during this work
 (optional, listed for completeness): enable GitHub push protection / secret scanning

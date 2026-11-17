@@ -28,8 +28,7 @@ const PATTERNS = [
 ];
 
 /** JWT-shaped strings worth inspecting (three base64url segments). */
-const JWT_PATTERN =
-  /eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{8,}/g;
+const JWT_PATTERN = /eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{8,}/g;
 
 /**
  * Decodes the payload segment of a JWT-shaped string.
@@ -72,7 +71,8 @@ export function scanForSecrets(text) {
     // switches key formats — adjust here deliberately, with review.
     if (payload?.role === 'anon') continue;
     findings.push({
-      pattern: payload?.role === 'service_role' ? 'service-role JWT' : 'unexpected JWT-shaped string',
+      pattern:
+        payload?.role === 'service_role' ? 'service-role JWT' : 'unexpected JWT-shaped string',
       index: match.index ?? 0,
     });
   }
@@ -120,7 +120,9 @@ function runCli() {
   }
 
   if (violations > 0) {
-    console.error('::error::Secret-shaped material was found in the build output; deployment blocked.');
+    console.error(
+      '::error::Secret-shaped material was found in the build output; deployment blocked.',
+    );
     return 1;
   }
   console.log(`Build output scan clean (${files.length} file${files.length === 1 ? '' : 's'}).`);
