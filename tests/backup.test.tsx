@@ -17,6 +17,7 @@ import { EXAM_TIMETABLE_KEY } from '../src/store/examTimetable';
 import { MATERIALS_KEY, materialBlobs } from '../src/store/materials';
 import { TIMER_STORAGE_KEY } from '../src/features/timer/usePomodoro';
 import { setActiveStorageProfile, storageForProfile } from '../src/lib/safeStorage';
+import { createArchive } from '../src/store/archive';
 
 afterEach(() => {
   setActiveStorageProfile(null);
@@ -37,6 +38,18 @@ function backupFile(data: Record<string, unknown>): File {
 }
 
 describe('backup data integrity', () => {
+  // The archive manifest must record the real app version (vite.config.ts
+  // derives VITE_APP_VERSION from package.json) so recovery tooling can
+  // identify which StudyDesk produced a backup.
+  it('stamps the archive app version from package.json', async () => {
+    const pkg = (await import('../package.json')).default;
+    expect(pkg.version).toMatch(/^\d+\.\d+/);
+    expect(import.meta.env.VITE_APP_VERSION).toBe(pkg.version);
+
+    const blob = await createArchive(exportBackup().data, import.meta.env.VITE_APP_VERSION);
+    expect(blob.size).toBeGreaterThan(0);
+  });
+
   // Prevent a signed-in account's export and clear-data actions from reading or deleting another profile.
   it('exports and clears only the active account profile', () => {
     storageForProfile('account-a').setItem(

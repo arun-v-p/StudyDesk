@@ -5,6 +5,7 @@ import { defineConfig } from 'vite';
 import type { Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
+import pkg from './package.json';
 import { validatePublishableKey, validateSupabaseUrl } from './scripts/validate-supabase-env.mjs';
 
 /**
@@ -237,6 +238,11 @@ process.env.VITE_SITE_URL = resolveSiteUrl();
 
 export default defineConfig({
   base: resolveBase(),
+  // Derived from package.json so backup archives always carry the real app
+  // version; do not set VITE_APP_VERSION by hand (see .env.example).
+  define: {
+    'import.meta.env.VITE_APP_VERSION': JSON.stringify(pkg.version),
+  },
   plugins: [react(), tailwindcss(), validateSupabaseEnv(), appShellServiceWorker(), policyRouteEntries()],
   server: { host: '0.0.0.0', port: 3000, strictPort: true },
   build: {
