@@ -97,4 +97,30 @@ describe('AccountMenu', () => {
     await waitFor(() => expect(screen.queryByRole('button', { name: /account:/i })).toBeNull());
     expect(accountStorage.getItem('studydesk.tasks')).toBe('account-record');
   });
+
+  it('discloses that other devices stay signed in and offers a global sign-out', async () => {
+    const user = userEvent.setup();
+    mocks.initialSession = session('account-b', 'account-b@example.com');
+
+    renderAccountMenu();
+    await user.click(await screen.findByRole('button', { name: 'Account: account-b@example.com' }));
+
+    const menu = screen.getByRole('region', { name: 'Account menu' });
+    expect(menu).toHaveTextContent(/other devices stay signed in/i);
+
+    await user.click(screen.getByRole('button', { name: 'Log out of all devices' }));
+    await waitFor(() => expect(mocks.signOut).toHaveBeenCalledWith({ scope: 'global' }));
+  });
+
+  it('keeps the default sign-out scoped to the current device', async () => {
+    const user = userEvent.setup();
+    mocks.initialSession = session('account-c', 'account-c@example.com');
+
+    renderAccountMenu();
+    await user.click(await screen.findByRole('button', { name: 'Account: account-c@example.com' }));
+    await user.click(screen.getByRole('button', { name: 'Log out', exact: true }));
+
+    await waitFor(() => expect(mocks.signOut).toHaveBeenCalledWith({ scope: 'local' }));
+    expect(mocks.signOut).not.toHaveBeenCalledWith({ scope: 'global' });
+  });
 });
