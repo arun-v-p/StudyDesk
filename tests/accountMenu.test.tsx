@@ -118,7 +118,7 @@ describe('AccountMenu', () => {
 
     renderAccountMenu();
     await user.click(await screen.findByRole('button', { name: 'Account: account-c@example.com' }));
-    await user.click(screen.getByRole('button', { name: 'Log out', exact: true }));
+    await user.click(screen.getByRole('button', { name: 'Log out' }));
 
     await waitFor(() => expect(mocks.signOut).toHaveBeenCalledWith({ scope: 'local' }));
     expect(mocks.signOut).not.toHaveBeenCalledWith({ scope: 'global' });
